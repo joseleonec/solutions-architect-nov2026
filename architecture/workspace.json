@@ -1,0 +1,341 @@
+{
+  "configuration" : { },
+  "description" : "Online and mobile banking platform for Banco Pichincha (BP).",
+  "documentation" : { },
+  "id" : 1,
+  "lastModifiedDate" : "2026-11-07T21:44:10Z",
+  "model" : {
+    "people" : [ {
+      "description" : "Retail banking client. Checks movements, makes transfers and payments.",
+      "id" : "1",
+      "name" : "Customer",
+      "properties" : {
+        "structurizr.dsl.identifier" : "customer"
+      },
+      "relationships" : [ {
+        "description" : "Checks movements, makes transfers and payments using",
+        "destinationId" : "3",
+        "id" : "12",
+        "sourceId" : "1",
+        "tags" : "Relationship",
+        "technology" : "HTTPS"
+      } ],
+      "tags" : "Element,Person,Customer"
+    }, {
+      "description" : "Person opening an account through mobile onboarding.",
+      "id" : "2",
+      "name" : "New customer",
+      "properties" : {
+        "structurizr.dsl.identifier" : "prospect"
+      },
+      "relationships" : [ {
+        "description" : "Opens an account with facial recognition using",
+        "destinationId" : "3",
+        "id" : "13",
+        "sourceId" : "2",
+        "tags" : "Relationship",
+        "technology" : "HTTPS"
+      } ],
+      "tags" : "Element,Person,Customer"
+    } ],
+    "softwareSystems" : [ {
+      "description" : "Lets customers see their movement history and make own-account and interbank transfers and payments.",
+      "documentation" : { },
+      "id" : "3",
+      "name" : "BP Internet Banking",
+      "properties" : {
+        "structurizr.dsl.identifier" : "bp"
+      },
+      "relationships" : [ {
+        "description" : "Authenticates users and validates tokens with",
+        "destinationId" : "6",
+        "id" : "14",
+        "sourceId" : "3",
+        "tags" : "Relationship",
+        "technology" : "OIDC / OAuth 2.0"
+      }, {
+        "description" : "Reads customer data and movements; posts transfers to",
+        "destinationId" : "4",
+        "id" : "15",
+        "sourceId" : "3",
+        "tags" : "Relationship",
+        "technology" : "TBD"
+      }, {
+        "description" : "Reads detailed customer data from",
+        "destinationId" : "5",
+        "id" : "16",
+        "sourceId" : "3",
+        "tags" : "Relationship",
+        "technology" : "TBD"
+      }, {
+        "description" : "Verifies identity and liveness with",
+        "destinationId" : "8",
+        "id" : "17",
+        "sourceId" : "3",
+        "tags" : "Relationship",
+        "technology" : "HTTPS"
+      }, {
+        "description" : "Sends interbank transfers to",
+        "destinationId" : "9",
+        "id" : "18",
+        "sourceId" : "3",
+        "tags" : "Relationship",
+        "technology" : "TBD"
+      }, {
+        "description" : "Sends movement notifications through",
+        "destinationId" : "10",
+        "id" : "19",
+        "sourceId" : "3",
+        "tags" : "Relationship",
+        "technology" : "HTTPS"
+      }, {
+        "description" : "Sends movement notifications through",
+        "destinationId" : "11",
+        "id" : "20",
+        "sourceId" : "3",
+        "tags" : "Relationship",
+        "technology" : "HTTPS"
+      }, {
+        "description" : "Records customer actions in",
+        "destinationId" : "7",
+        "id" : "21",
+        "sourceId" : "3",
+        "tags" : "Relationship",
+        "technology" : "TBD"
+      } ],
+      "tags" : "Element,Software System,InScope"
+    }, {
+      "description" : "System of record: basic customer data, products and movements.",
+      "documentation" : { },
+      "id" : "4",
+      "name" : "Core Banking",
+      "properties" : {
+        "structurizr.dsl.identifier" : "core"
+      },
+      "tags" : "Element,Software System,Internal,Existing"
+    }, {
+      "description" : "Provides detailed customer information when required.",
+      "documentation" : { },
+      "id" : "5",
+      "name" : "Complementary Customer System",
+      "properties" : {
+        "structurizr.dsl.identifier" : "customerInfo"
+      },
+      "tags" : "Element,Software System,Internal,Existing"
+    }, {
+      "description" : "BP's existing OAuth 2.0 / OIDC product. Authenticates users and issues tokens.",
+      "documentation" : { },
+      "id" : "6",
+      "name" : "Identity Provider (OAuth 2.0)",
+      "properties" : {
+        "structurizr.dsl.identifier" : "identity"
+      },
+      "tags" : "Element,Software System,Internal,Existing"
+    }, {
+      "description" : "Records every customer action for regulatory audit.",
+      "documentation" : { },
+      "id" : "7",
+      "name" : "Audit Store",
+      "properties" : {
+        "structurizr.dsl.identifier" : "audit"
+      },
+      "tags" : "Element,Software System,Internal"
+    }, {
+      "description" : "Facial recognition and liveness detection during onboarding.",
+      "documentation" : { },
+      "id" : "8",
+      "name" : "Biometric / KYC Provider",
+      "properties" : {
+        "structurizr.dsl.identifier" : "biometrics"
+      },
+      "tags" : "Element,Software System,External"
+    }, {
+      "description" : "National network that settles transfers to other banks.",
+      "documentation" : { },
+      "id" : "9",
+      "name" : "Interbank Payment Network",
+      "properties" : {
+        "structurizr.dsl.identifier" : "interbank"
+      },
+      "tags" : "Element,Software System,External"
+    }, {
+      "description" : "First notification channel (e.g. push).",
+      "documentation" : { },
+      "id" : "10",
+      "name" : "Notification Provider A",
+      "properties" : {
+        "structurizr.dsl.identifier" : "notifyA"
+      },
+      "relationships" : [ {
+        "description" : "Notifies",
+        "destinationId" : "1",
+        "id" : "22",
+        "sourceId" : "10",
+        "tags" : "Relationship"
+      } ],
+      "tags" : "Element,Software System,External"
+    }, {
+      "description" : "Second notification channel (e.g. SMS / email).",
+      "documentation" : { },
+      "id" : "11",
+      "name" : "Notification Provider B",
+      "properties" : {
+        "structurizr.dsl.identifier" : "notifyB"
+      },
+      "relationships" : [ {
+        "description" : "Notifies",
+        "destinationId" : "1",
+        "id" : "23",
+        "sourceId" : "11",
+        "tags" : "Relationship"
+      } ],
+      "tags" : "Element,Software System,External"
+    } ]
+  },
+  "name" : "BP Internet Banking",
+  "properties" : {
+    "structurizr.inspection.error" : "3",
+    "structurizr.dsl" : "LyoKICogQlAgSW50ZXJuZXQgQmFua2luZzogQzQgbW9kZWwgKFN0cnVjdHVyaXpyIERTTCkKICoKICogUnVuIGxvY2FsbHkgKGZyb20gdGhlIHJlcG8gcm9vdCk6CiAqICAgZG9ja2VyIHJ1biAtaXQgLS1ybSAtcCA4MDgwOjgwODAgLXYgIiVjZCUvYXJjaGl0ZWN0dXJlOi91c3IvbG9jYWwvc3RydWN0dXJpenIiIHN0cnVjdHVyaXpyL2xpdGUKICogVGhlbiBvcGVuIGh0dHA6Ly9sb2NhbGhvc3Q6ODA4MAogKgogKiBTdGF0dXM6IHNrZWxldG9uLiBPbmx5IHRoZSBlbGVtZW50cyBmaXhlZCBieSB0aGUgc3RhdGVtZW50IGFyZSBtb2RlbGxlZC4KICogQ29udGFpbmVycyBhbmQgY29tcG9uZW50cyBhcmUgZmlsbGVkIGluIGR1cmluZyBTdGVwcyA0LTE3LgogKi8Kd29ya3NwYWNlICJCUCBJbnRlcm5ldCBCYW5raW5nIiAiT25saW5lIGFuZCBtb2JpbGUgYmFua2luZyBwbGF0Zm9ybSBmb3IgQmFuY28gUGljaGluY2hhIChCUCkuIiB7CgogICAgIWlkZW50aWZpZXJzIGhpZXJhcmNoaWNhbAoKICAgIG1vZGVsIHsKICAgICAgICAvLyAtLS0tLS0tLS0tIFBlb3BsZSAtLS0tLS0tLS0tCiAgICAgICAgY3VzdG9tZXIgPSBwZXJzb24gIkN1c3RvbWVyIiAiUmV0YWlsIGJhbmtpbmcgY2xpZW50LiBDaGVja3MgbW92ZW1lbnRzLCBtYWtlcyB0cmFuc2ZlcnMgYW5kIHBheW1lbnRzLiIgIkN1c3RvbWVyIgogICAgICAgIHByb3NwZWN0ID0gcGVyc29uICJOZXcgY3VzdG9tZXIiICJQZXJzb24gb3BlbmluZyBhbiBhY2NvdW50IHRocm91Z2ggbW9iaWxlIG9uYm9hcmRpbmcuIiAiQ3VzdG9tZXIiCgogICAgICAgIC8vIC0tLS0tLS0tLS0gVGhlIHN5c3RlbSBiZWluZyBkZXNpZ25lZCAtLS0tLS0tLS0tCiAgICAgICAgYnAgPSBzb2Z0d2FyZVN5c3RlbSAiQlAgSW50ZXJuZXQgQmFua2luZyIgIkxldHMgY3VzdG9tZXJzIHNlZSB0aGVpciBtb3ZlbWVudCBoaXN0b3J5IGFuZCBtYWtlIG93bi1hY2NvdW50IGFuZCBpbnRlcmJhbmsgdHJhbnNmZXJzIGFuZCBwYXltZW50cy4iICJJblNjb3BlIiB7CiAgICAgICAgICAgIC8vIFRPRE8gKFN0ZXAgNCspOiBjb250YWluZXJzLCBlLmcuCiAgICAgICAgICAgIC8vIHNwYSAgICAgICA9IGNvbnRhaW5lciAiV2ViIEFwcCAoU1BBKSIgICAgIi4uLiIgIjxmcmFtZXdvcms+IiAiV2ViQXBwIgogICAgICAgICAgICAvLyBtb2JpbGUgICAgPSBjb250YWluZXIgIk1vYmlsZSBBcHAiICAgICAgICIuLi4iICI8ZnJhbWV3b3JrPiIgIk1vYmlsZUFwcCIKICAgICAgICAgICAgLy8gZ2F0ZXdheSAgID0gY29udGFpbmVyICJBUEkgR2F0ZXdheSIgICAgICAiLi4uIiAiPHByb2R1Y3Q+IiAgICJHYXRld2F5IgogICAgICAgICAgICAvLyAuLi4KICAgICAgICB9CgogICAgICAgIC8vIC0tLS0tLS0tLS0gSW50ZXJuYWwgc3lzdGVtcyAob3duZWQgYnkgQlAsIG5vdCBpbiBzY29wZSkgLS0tLS0tLS0tLQogICAgICAgIGNvcmUgPSBzb2Z0d2FyZVN5c3RlbSAiQ29yZSBCYW5raW5nIiAiU3lzdGVtIG9mIHJlY29yZDogYmFzaWMgY3VzdG9tZXIgZGF0YSwgcHJvZHVjdHMgYW5kIG1vdmVtZW50cy4iICJJbnRlcm5hbCxFeGlzdGluZyIKICAgICAgICBjdXN0b21lckluZm8gPSBzb2Z0d2FyZVN5c3RlbSAiQ29tcGxlbWVudGFyeSBDdXN0b21lciBTeXN0ZW0iICJQcm92aWRlcyBkZXRhaWxlZCBjdXN0b21lciBpbmZvcm1hdGlvbiB3aGVuIHJlcXVpcmVkLiIgIkludGVybmFsLEV4aXN0aW5nIgogICAgICAgIGlkZW50aXR5ID0gc29mdHdhcmVTeXN0ZW0gIklkZW50aXR5IFByb3ZpZGVyIChPQXV0aCAyLjApIiAiQlAncyBleGlzdGluZyBPQXV0aCAyLjAgLyBPSURDIHByb2R1Y3QuIEF1dGhlbnRpY2F0ZXMgdXNlcnMgYW5kIGlzc3VlcyB0b2tlbnMuIiAiSW50ZXJuYWwsRXhpc3RpbmciCiAgICAgICAgYXVkaXQgPSBzb2Z0d2FyZVN5c3RlbSAiQXVkaXQgU3RvcmUiICJSZWNvcmRzIGV2ZXJ5IGN1c3RvbWVyIGFjdGlvbiBmb3IgcmVndWxhdG9yeSBhdWRpdC4iICJJbnRlcm5hbCIKCiAgICAgICAgLy8gLS0tLS0tLS0tLSBFeHRlcm5hbCBzeXN0ZW1zIC0tLS0tLS0tLS0KICAgICAgICBiaW9tZXRyaWNzID0gc29mdHdhcmVTeXN0ZW0gIkJpb21ldHJpYyAvIEtZQyBQcm92aWRlciIgIkZhY2lhbCByZWNvZ25pdGlvbiBhbmQgbGl2ZW5lc3MgZGV0ZWN0aW9uIGR1cmluZyBvbmJvYXJkaW5nLiIgIkV4dGVybmFsIgogICAgICAgIGludGVyYmFuayA9IHNvZnR3YXJlU3lzdGVtICJJbnRlcmJhbmsgUGF5bWVudCBOZXR3b3JrIiAiTmF0aW9uYWwgbmV0d29yayB0aGF0IHNldHRsZXMgdHJhbnNmZXJzIHRvIG90aGVyIGJhbmtzLiIgIkV4dGVybmFsIgogICAgICAgIG5vdGlmeUEgPSBzb2Z0d2FyZVN5c3RlbSAiTm90aWZpY2F0aW9uIFByb3ZpZGVyIEEiICJGaXJzdCBub3RpZmljYXRpb24gY2hhbm5lbCAoZS5nLiBwdXNoKS4iICJFeHRlcm5hbCIKICAgICAgICBub3RpZnlCID0gc29mdHdhcmVTeXN0ZW0gIk5vdGlmaWNhdGlvbiBQcm92aWRlciBCIiAiU2Vjb25kIG5vdGlmaWNhdGlvbiBjaGFubmVsIChlLmcuIFNNUyAvIGVtYWlsKS4iICJFeHRlcm5hbCIKCiAgICAgICAgLy8gLS0tLS0tLS0tLSBSZWxhdGlvbnNoaXBzIChjb250ZXh0IGxldmVsKSAtLS0tLS0tLS0tCiAgICAgICAgLy8gQ29udmVudGlvbjogIjx2ZXJiIHBocmFzZT4iICI8cHJvdG9jb2w+IgogICAgICAgIGN1c3RvbWVyIC0+IGJwICJDaGVja3MgbW92ZW1lbnRzLCBtYWtlcyB0cmFuc2ZlcnMgYW5kIHBheW1lbnRzIHVzaW5nIiAiSFRUUFMiCiAgICAgICAgcHJvc3BlY3QgLT4gYnAgIk9wZW5zIGFuIGFjY291bnQgd2l0aCBmYWNpYWwgcmVjb2duaXRpb24gdXNpbmciICJIVFRQUyIKCiAgICAgICAgYnAgLT4gaWRlbnRpdHkgIkF1dGhlbnRpY2F0ZXMgdXNlcnMgYW5kIHZhbGlkYXRlcyB0b2tlbnMgd2l0aCIgIk9JREMgLyBPQXV0aCAyLjAiCiAgICAgICAgYnAgLT4gY29yZSAiUmVhZHMgY3VzdG9tZXIgZGF0YSBhbmQgbW92ZW1lbnRzOyBwb3N0cyB0cmFuc2ZlcnMgdG8iICJUQkQiCiAgICAgICAgYnAgLT4gY3VzdG9tZXJJbmZvICJSZWFkcyBkZXRhaWxlZCBjdXN0b21lciBkYXRhIGZyb20iICJUQkQiCiAgICAgICAgYnAgLT4gYmlvbWV0cmljcyAiVmVyaWZpZXMgaWRlbnRpdHkgYW5kIGxpdmVuZXNzIHdpdGgiICJIVFRQUyIKICAgICAgICBicCAtPiBpbnRlcmJhbmsgIlNlbmRzIGludGVyYmFuayB0cmFuc2ZlcnMgdG8iICJUQkQiCiAgICAgICAgYnAgLT4gbm90aWZ5QSAiU2VuZHMgbW92ZW1lbnQgbm90aWZpY2F0aW9ucyB0aHJvdWdoIiAiSFRUUFMiCiAgICAgICAgYnAgLT4gbm90aWZ5QiAiU2VuZHMgbW92ZW1lbnQgbm90aWZpY2F0aW9ucyB0aHJvdWdoIiAiSFRUUFMiCiAgICAgICAgYnAgLT4gYXVkaXQgIlJlY29yZHMgY3VzdG9tZXIgYWN0aW9ucyBpbiIgIlRCRCIKCiAgICAgICAgbm90aWZ5QSAtPiBjdXN0b21lciAiTm90aWZpZXMiCiAgICAgICAgbm90aWZ5QiAtPiBjdXN0b21lciAiTm90aWZpZXMiCiAgICB9CgogICAgdmlld3MgewogICAgICAgIHN5c3RlbUNvbnRleHQgYnAgIjAxLUNvbnRleHQiICJTeXN0ZW0gY29udGV4dDogZm9yIG5vbi10ZWNobmljYWwgc3Rha2Vob2xkZXJzLiIgewogICAgICAgICAgICBpbmNsdWRlICoKICAgICAgICAgICAgYXV0b2xheW91dCBscgogICAgICAgIH0KCiAgICAgICAgLy8gVE9ETyAoU3RlcCAxNyk6CiAgICAgICAgLy8gY29udGFpbmVyIGJwICIwMi1Db250YWluZXJzIiB7IGluY2x1ZGUgKiBhdXRvbGF5b3V0IGxyIH0KICAgICAgICAvLyBjb21wb25lbnQgYnAuPGNvbnRhaW5lcj4gIjAzLUNvbXBvbmVudHMtPG5hbWU+IiB7IGluY2x1ZGUgKiBhdXRvbGF5b3V0IGxyIH0KICAgICAgICAvLyBkeW5hbWljIC4uLiAoYXV0aGVudGljYXRpb24sIG9uYm9hcmRpbmcsIHRyYW5zZmVyIHNlcXVlbmNlcykKICAgICAgICAvLyBkZXBsb3ltZW50IC4uLiAoY2xvdWQgaW5mcmFzdHJ1Y3R1cmUpCgogICAgICAgIHN0eWxlcyB7CiAgICAgICAgICAgIGVsZW1lbnQgIkVsZW1lbnQiIHsKICAgICAgICAgICAgICAgIGZvbnRTaXplIDIyCiAgICAgICAgICAgICAgICBzaGFwZSByb3VuZGVkYm94CiAgICAgICAgICAgIH0KICAgICAgICAgICAgZWxlbWVudCAiUGVyc29uIiB7CiAgICAgICAgICAgICAgICBzaGFwZSBwZXJzb24KICAgICAgICAgICAgICAgIGJhY2tncm91bmQgIzA4NDI3YgogICAgICAgICAgICAgICAgY29sb3IgI2ZmZmZmZgogICAgICAgICAgICB9CiAgICAgICAgICAgIGVsZW1lbnQgIkluU2NvcGUiIHsKICAgICAgICAgICAgICAgIGJhY2tncm91bmQgIzExNjhiZAogICAgICAgICAgICAgICAgY29sb3IgI2ZmZmZmZgogICAgICAgICAgICB9CiAgICAgICAgICAgIGVsZW1lbnQgIkludGVybmFsIiB7CiAgICAgICAgICAgICAgICBiYWNrZ3JvdW5kICM1YTdkOWEKICAgICAgICAgICAgICAgIGNvbG9yICNmZmZmZmYKICAgICAgICAgICAgfQogICAgICAgICAgICBlbGVtZW50ICJFeGlzdGluZyIgewogICAgICAgICAgICAgICAgc3Ryb2tlICMyZjRmNmYKICAgICAgICAgICAgICAgIHN0cm9rZVdpZHRoIDQKICAgICAgICAgICAgfQogICAgICAgICAgICBlbGVtZW50ICJFeHRlcm5hbCIgewogICAgICAgICAgICAgICAgYmFja2dyb3VuZCAjOTk5OTk5CiAgICAgICAgICAgICAgICBjb2xvciAjZmZmZmZmCiAgICAgICAgICAgIH0KICAgICAgICAgICAgZWxlbWVudCAiV2ViQXBwIiB7CiAgICAgICAgICAgICAgICBzaGFwZSB3ZWJicm93c2VyCiAgICAgICAgICAgIH0KICAgICAgICAgICAgZWxlbWVudCAiTW9iaWxlQXBwIiB7CiAgICAgICAgICAgICAgICBzaGFwZSBtb2JpbGVkZXZpY2Vwb3J0cmFpdAogICAgICAgICAgICB9CiAgICAgICAgICAgIGVsZW1lbnQgIkRhdGFiYXNlIiB7CiAgICAgICAgICAgICAgICBzaGFwZSBjeWxpbmRlcgogICAgICAgICAgICB9CiAgICAgICAgICAgIGVsZW1lbnQgIlF1ZXVlIiB7CiAgICAgICAgICAgICAgICBzaGFwZSBwaXBlCiAgICAgICAgICAgIH0KICAgICAgICAgICAgcmVsYXRpb25zaGlwICJSZWxhdGlvbnNoaXAiIHsKICAgICAgICAgICAgICAgIHRoaWNrbmVzcyAyCiAgICAgICAgICAgICAgICBmb250U2l6ZSAyMAogICAgICAgICAgICB9CiAgICAgICAgICAgIHJlbGF0aW9uc2hpcCAiQXN5bmMiIHsKICAgICAgICAgICAgICAgIHN0eWxlIGRhc2hlZAogICAgICAgICAgICB9CiAgICAgICAgfQogICAgfQoKfQ==",
+    "structurizr.inspection.info" : "0",
+    "structurizr.inspection.ignore" : "0",
+    "structurizr.inspection.warning" : "0"
+  },
+  "views" : {
+    "configuration" : {
+      "styles" : {
+        "elements" : [ {
+          "shape" : "Cylinder",
+          "tag" : "Database"
+        }, {
+          "fontSize" : 22,
+          "shape" : "RoundedBox",
+          "tag" : "Element"
+        }, {
+          "stroke" : "#2f4f6f",
+          "strokeWidth" : 4,
+          "tag" : "Existing"
+        }, {
+          "background" : "#999999",
+          "color" : "#ffffff",
+          "tag" : "External"
+        }, {
+          "background" : "#1168bd",
+          "color" : "#ffffff",
+          "tag" : "InScope"
+        }, {
+          "background" : "#5a7d9a",
+          "color" : "#ffffff",
+          "tag" : "Internal"
+        }, {
+          "shape" : "MobileDevicePortrait",
+          "tag" : "MobileApp"
+        }, {
+          "background" : "#08427b",
+          "color" : "#ffffff",
+          "shape" : "Person",
+          "tag" : "Person"
+        }, {
+          "shape" : "Pipe",
+          "tag" : "Queue"
+        }, {
+          "shape" : "WebBrowser",
+          "tag" : "WebApp"
+        } ],
+        "relationships" : [ {
+          "style" : "Dashed",
+          "tag" : "Async"
+        }, {
+          "fontSize" : 20,
+          "tag" : "Relationship",
+          "thickness" : 2
+        } ]
+      },
+      "terminology" : { }
+    },
+    "systemContextViews" : [ {
+      "automaticLayout" : {
+        "edgeSeparation" : 50,
+        "nodeSeparation" : 50,
+        "rankDirection" : "LeftRight",
+        "rankSeparation" : 100,
+        "vertices" : true
+      },
+      "description" : "System context: for non-technical stakeholders.",
+      "elements" : [ {
+        "id" : "1",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "2",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "3",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "4",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "5",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "6",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "7",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "8",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "9",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "10",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "11",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "enterpriseBoundaryVisible" : true,
+      "key" : "01-Context",
+      "name" : "System Context View: BP Internet Banking",
+      "order" : 1,
+      "relationships" : [ {
+        "id" : "12"
+      }, {
+        "id" : "13"
+      }, {
+        "id" : "14"
+      }, {
+        "id" : "15"
+      }, {
+        "id" : "16"
+      }, {
+        "id" : "17"
+      }, {
+        "id" : "18"
+      }, {
+        "id" : "19"
+      }, {
+        "id" : "20"
+      }, {
+        "id" : "21"
+      }, {
+        "id" : "22"
+      }, {
+        "id" : "23"
+      } ],
+      "softwareSystemId" : "3"
+    } ]
+  }
+}
