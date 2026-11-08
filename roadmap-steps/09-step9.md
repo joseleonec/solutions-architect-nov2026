@@ -233,3 +233,9 @@ The **Movements projector** is the anti-corruption layer for CDC: it maps Core t
 - [X] Data protection controls
 - [ ] Draw the component view of the Accounts / Movements / Dashboard Precompute path in Structurizr (Step 17)
 - [ ] **Your review:** check DynamoDB and ElastiCache costs with the AWS Pricing Calculator in Step 15
+
+---
+
+## Update (8 Nov 2026): event-driven frequent-client classifier
+
+The classifier is now **event-driven** instead of a daily batch: it consumes login and access events, keeps a **sliding-window activity score** per customer in Redis, applies a **configurable rule behind a feature flag** (default ≥ 4 logins in 30 days) and publishes `FrequentClientAdded` / `FrequentClientRemoved`. The Dashboard Precompute Worker pre-builds the snapshot on `FrequentClientAdded` and on each frequent client's login. Lookup order stays: **cache → read model → Core**.

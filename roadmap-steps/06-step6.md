@@ -244,3 +244,22 @@ The product is provided by the bank (A-12). These are the capabilities this desi
 - [x] Identity product capabilities and candidate products listed
 - [ ] Draw the flows as Structurizr `dynamic` views in Step 17 (`05-Dynamic-Login-Web`, `05-Dynamic-Login-Biometric`, `05-Dynamic-StepUp-Transfer`)
 - [ ] **Your review:** check the current FAPI / DPoP support of the product you think the bank uses
+
+---
+
+## Update (8 Nov 2026): SIM-swap and the second factor
+
+SMS OTP is exposed to **SIM swap** and SS7 interception. The second factor is now ordered by strength:
+
+1. **In-app confirmation** on a bound device (biometric-gated device key) — preferred for step-up.
+2. **App-based OTP (TOTP)** in the bank app — preferred second factor for web login.
+3. **SMS OTP** — fallback only (customers without the app or a bound device), with extra risk checks (recent SIM change signal from the carrier when available, lower limits).
+
+### Action → required assurance
+
+| Customer action | Required assurance |
+| --- | --- |
+| View balances and movements; own-account transfer | Device key unlocked with biometrics (mobile) or password + OTP (web) — `acr:2` |
+| Transfer to a registered beneficiary under the threshold | `acr:2` |
+| Amount over the threshold or new beneficiary | `acr:3`: fresh confirmation bound to the transaction (in-app biometric signature or TOTP), plus cooling period / lower limit for new beneficiaries |
+| Change device, password or contact data; account recovery | Password + OTP **and** facial re-verification with liveness (+ Registro Civil match); notification to old and new contacts |

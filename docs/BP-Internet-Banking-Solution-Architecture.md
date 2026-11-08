@@ -10,6 +10,8 @@ Online and mobile banking platform: movement history, own-account and interbank 
 
 C4 model (Structurizr DSL) · AWS · Ecuador regulatory context
 
+José Luis León · joleonca@gmail.com
+
 </div>
 
 <div class="toc">
@@ -32,13 +34,43 @@ C4 model (Structurizr DSL) · AWS · Ecuador regulatory context
 14. Monitoring and observability
 15. Operational excellence
 16. Cost management
-17. Architecture decision log (ADR-001 … ADR-021)
-18. Risks, open questions and future evolution
-19. Requirement and grading-criteria traceability
+17. Delivery plan and evolution
+18. Architecture decision log (ADR-001 … ADR-022)
+19. Risks, open questions and future evolution
+20. Requirement and grading-criteria traceability
 
 </div>
 
 ## 1. Executive summary
+
+### The problem and why this project
+
+Customers expect to do their banking from their phone or computer, at any hour, without visiting a branch. BP needs to offer that **securely, within the regulation and on top of the systems it already has**: service at any time (customers check, transfer and pay by themselves), new customers acquired remotely (opening an account from the phone reaches people without opening branches), compliance and trust (the regulation requires notifying every movement and keeping a reliable record of everything), and a base to grow on (what is built is reused by new products, and spend grows only as customers use it).
+
+| Business need | What is expected |
+| --- | --- |
+| Secure self-service | Check and move money by themselves, at any hour, with bank-grade security |
+| New customers without a branch | Open an account from the phone with a photo of the cédula and a live selfie, identity verified |
+| Reuse what BP already has | Core platform, complementary customer system, existing OAuth 2.0 product |
+| Notify every movement | Inform the customer through at least two channels, as the regulation requires |
+| Traceability and compliance | Record everything customers do; comply with data protection, security and AML rules |
+| Always available | Doesn't go down, recovers from a disaster, is monitored, and is fast |
+
+| Business process | What the customer or the bank achieves | Decisions |
+| --- | --- | --- |
+| Onboarding | Open an account from the phone with cédula, live selfie and fingerprint code | ADR-008, 007 |
+| Authentication (web and mobile) | Sign in securely with biometrics, or password plus a second factor | ADR-005, 006, 007 |
+| Balances and movements | See balances and history fast, even faster for frequent clients | ADR-012, 013, 014 |
+| Own-account transfers and payments | Move money between own accounts instantly | ADR-010, 011 |
+| Interbank transfers and payments | Send money to other banks with clear status and no duplicates | ADR-009, 010 |
+| Audit | Tamper-proof record of every action, for regulators and disputes | ADR-015 |
+| Notifications | SMS and email for every movement | ADR-016 |
+
+> The statement doesn't describe BP's current digital channel; the qualitative benefits above should be validated with the business sponsor.
+
+**How to read this document.** Section 2–3: requirements, assumptions and regulation. Section 4: the C4 diagrams. Sections 5–11: detailed designs. Sections 12–16: security, resilience, monitoring, operations, cost. Section 17: how the target is reached in stages. Section 18: all decisions with alternatives and justifications.
+
+### Proposal
 
 BP (assumed to be **Banco Pichincha**, the largest private bank in Ecuador, ~6.5 M customers, ~5.2 M mobile-app users) needs an internet banking platform for a web SPA and a multiplatform mobile app. Customers check their movement history and make own-account and interbank transfers and payments; new customers open accounts from the app with facial recognition. Every movement must be notified, every action audited, and the platform must be highly available, secure and low-latency. The bank's 2025 app outages (supervised by the Superintendencia de Bancos, followed by a deposit run) make **resilience the first design driver**.
 
@@ -56,9 +88,10 @@ BP (assumed to be **Banco Pichincha**, the largest private bank in Ecuador, ~6.5
 | Audit | Outbox + Kafka → Audit Service → **S3 Object Lock (WORM)** + hot index, **hash chain + signed digests** |
 | Notifications | **SMS + email simultaneously** (regulation), 2 SMS providers with automatic failover, push as complement |
 | Resilience | Multi-AZ, warm standby DR (**RTO 15 min / RPO 1 min** for critical journeys), auto-healing, chaos and DR drills |
-| Cost | AWS ≈ **USD 105–120 k / month** (≈ USD 0.02 per active user); **SMS is the dominant running cost** |
+| Cost | AWS ≈ **USD 111–116 k / month** at full scale (unit prices checked against the AWS Price List; ≈ USD 0.02 per active user); **SMS is the dominant running cost** |
+| Delivery | **Four stages** (pretotype → read-only MVP → transactional → enterprise scale) with go/no-go gates, a minimum resilience line per stage and an explicit technical-debt register |
 
-All decisions are recorded as **21 ADRs** (section 17), each with the alternatives evaluated and at least two justifications. The C4 model is a single **Structurizr DSL** workspace in the repository ([architecture/workspace.dsl](../architecture/workspace.dsl)), so every diagram is generated from one consistent model.
+All decisions are recorded as **22 ADRs** (section 18), each with the alternatives evaluated and at least two justifications. The C4 model is a single **Structurizr DSL** workspace in the repository ([architecture/workspace.dsl](../architecture/workspace.dsl)), so every diagram is generated from one consistent model.
 
 ## 2. Context, requirements and assumptions
 
@@ -126,6 +159,8 @@ All decisions are recorded as **21 ADRs** (section 17), each with the alternativ
 | R4 / R5 | SPDP-SPD-2026-0039-R (**biometric data**) and SPDP-SPD-2026-0040-R (**breach notification**) | SPDP | Facial recognition, incident deadlines |
 | R7 | **AML law** (2024) and its 2026 regulation | UAFE | KYC at onboarding, transaction monitoring, record retention |
 | R8 | **BCE SPI technical norm** and **real-time payments messaging standard** (Res. BCE-GG-007-2026) | Banco Central del Ecuador | Interbank payments in ISO 20022 |
+| R9 | **Ley Orgánica para el Fortalecimiento de la Ciberseguridad** (Registro Oficial No. 290, 22 May 2026) | Several authorities | Cybersecurity frameworks, incident response and reporting, controlled ethical hacking, reform of LOPDP art. 43 (breach notification) |
+| R10 | **JPRF codification** – technology and third-party risk provisions (articles to confirm) | Junta de Política y Regulación Financiera y Monetaria | Supplier due diligence, audit rights, exit plan, third-party risk register |
 | — | International references: ISO 27001/27017/27018, ISO 22301, COBIT 2019, OWASP ASVS/MASVS, FAPI 2.0, NIST SP 800-207 | — | Security, continuity, governance |
 
 **Requirements that shape the design**
@@ -146,6 +181,11 @@ All decisions are recorded as **21 ADRs** (section 17), each with the alternativ
 | Biometrics: DPIA every 12 months, explicit consent, **non-biometric alternative**, templates over raw images, no solely automated decisions, no minors | Onboarding design, manual review queue, password + OTP always available | 7 |
 | KYC before account opening, transaction monitoring, ≥ 10-year records | Onboarding Saga, AML Monitoring, WORM archive | 7, 10 |
 | ISO 20022 `pacs.008` / `pacs.002`, debit before sending, irrevocability | Interbank Connector, transfer Saga | 8 |
+| Cybersecurity law: incident response and reporting, penetration testing | SIEM / SOC, runbooks with regulator notification, annual pentest and red team | 12, 14 |
+| Third-party and cloud risk (JPRF / SB) | Vendor due diligence (SOC 2, ISO 27001), audit clauses, **exit plan and portable design** (Kubernetes, Kafka, OpenTelemetry, Terraform), third-party risk register | 3, 12 |
+| LOPDP governance | **Data Protection Officer**, records of processing for cloud, eKYC, SMS and email processors | 3 |
+
+**Hosting abroad.** The SPDP's 2026 norm on data transfers treats a cloud provider acting as **processor** as not an international transfer. The design follows it but applies the stricter safeguards anyway: a processing agreement with contract-clause protections, **bank-managed keys** (KMS / CloudHSM), an entry in the processing register and a privacy notice disclosing hosting abroad. If Legal requires more, the fallback is a **hybrid option** that keeps biometric evidence and KYC documents in Ecuador.
 
 > Article numbers of the SB norm should be checked against the current consolidated text (the chapter was replaced in 2023); the 10-year AML retention should be confirmed in the UAFE regulation.
 
@@ -177,7 +217,7 @@ For non-technical readers: who uses the platform and which BP and external syste
 | Element | Role |
 | --- | --- |
 | Customer, New customer | Use the web and mobile apps; new customers onboard from the app |
-| Compliance Officer | BP staff who investigate the audit trail |
+| Operations & Compliance Staff | BP staff who review doubtful onboarding cases, resolve manual transfer cases and investigate the audit trail (Back-office Portal) |
 | Core Banking, Complementary Customer System | BP on-premises systems of record (existing) |
 | Identity Provider | BP's existing OAuth 2.0 / OIDC product |
 | eKYC / Biometric Provider, Registro Civil | Identity verification during onboarding |
@@ -202,6 +242,7 @@ The full container view is in the repository ([02-Containers.svg](../architectur
 | --- | --- | --- |
 | Web App (SPA) | Angular, S3 + CloudFront | Web UI; holds no tokens |
 | Mobile App | Flutter | Mobile UI, onboarding SDK, biometric login, device binding, RASP |
+| Back-office Portal | Angular (internal) | Staff: manual onboarding review (four-eyes), manual transfer cases, audit queries; staff SSO + FIDO2 MFA |
 | Edge | CloudFront + WAF + Shield Advanced | TLS, WAF, bot control, DDoS, SPA hosting |
 | API Gateway | Kong on EKS | Single entry point: JWT + DPoP + acr checks, rate limits, routing, access log |
 | Web BFF / Mobile BFF | Java 21 / Spring Boot | Token handler (web); screen-shaped APIs, device context, app version (mobile) |
@@ -215,17 +256,19 @@ The full container view is in the repository ([02-Containers.svg](../architectur
 
 ### 4.4 Level 3: Components
 
-Five containers are opened, chosen because they hold the patterns the statement asks about.
+Six containers are opened, chosen because they hold the patterns the statement asks about. Components are grouped in **layers** (API → business → integration and data). **Security boundaries** are the same in every view: (1) internet → gateway: TLS, WAF, JWT + DPoP; (2) gateway → service: mTLS on a private network, user identity forwarded in the token; (3) service → data and external systems: private endpoints, per-service IAM roles, no secrets in code, timeouts on every call.
 
-<div class="figure landscape"><p class="caption">Figure 4.4a – API Gateway: plugin chain (token, DPoP, acr checks before routing)</p><img src="../architecture/.structurizr/1/images/03-Components-Gateway.svg" alt="Components: gateway"/></div>
+<div class="figure landscape"><p class="caption">Figure 4.4a – API Gateway: plugin chain (token, DPoP, acr checks before routing)</p><img src="../architecture/.structurizr/1/images/03-Components-Gateway.svg" alt="Components: gateway"/><p class="note"><em>How to read it.</em> Every request passes the plugins in order: rate limit, JWT, DPoP proof, route policy (scope and minimum `acr`), revocation list, then the router sends it to a BFF or, for staff routes, to the review, audit or operations APIs. The access logger publishes one audit record per call.</p></div>
 
-<div class="figure landscape"><p class="caption">Figure 4.4b – Transfer Service: idempotency, step-up, Saga orchestrator, circuit-broken Core client, transactional outbox and inbox</p><img src="../architecture/.structurizr/1/images/03-Components-Transfer.svg" alt="Components: transfer"/></div>
+<div class="figure landscape"><p class="caption">Figure 4.4b – Transfer Service: idempotency, step-up, Saga orchestrator, circuit-broken Core client, transactional outbox and inbox</p><img src="../architecture/.structurizr/1/images/03-Components-Transfer.svg" alt="Components: transfer"/><p class="note"><em>How to read it.</em> Three layers. API: authorization (scope, ownership, step-up for new beneficiaries or high amounts) and idempotency; `202 Accepted` with a status URL for interbank transfers. Business: orchestrated Saga with a compensation handler and a reconciliation job against the Core and the interbank settlement reports; unresolved cases go to staff through the Operations Case API. Integration and data: repository with transactional outbox and circuit-broken clients to the Core Adapter, Limits and Risk.</p></div>
 
-<div class="figure landscape"><p class="caption">Figure 4.4c – Accounts Service: frequent-client persistence (cache-aside, refresh-ahead, event-driven invalidation)</p><img src="../architecture/.structurizr/1/images/03-Components-Accounts.svg" alt="Components: accounts"/></div>
+<div class="figure"><p class="caption">Figure 4.4b′ – Onboarding Service: device attestation, signed vendor webhook, state machine, decision engine, four-eyes manual review</p><img src="../architecture/.structurizr/1/images/03-Components-Onboarding.svg" alt="Components: onboarding"/><p class="note"><em>How to read it.</em> The vendor's result is never taken from the app: it arrives through an **HMAC-signed webhook** (or is polled if the webhook is lost) and is combined with the Registro Civil match and the screening result. A state machine decides approve, review or reject; doubtful cases and all rejections go to the four-eyes review in the Back-office Portal. On approval the user is created in the identity product with `kyc_level=verified`. Device attestation blocks emulators and tampered apps before any capture.</p></div>
 
-<div class="figure landscape"><p class="caption">Figure 4.4d – Notification Service: policy, templates, priority lanes, SMS failover, delivery tracking</p><img src="../architecture/.structurizr/1/images/03-Components-Notification.svg" alt="Components: notification"/></div>
+<div class="figure landscape"><p class="caption">Figure 4.4c – Accounts Service: frequent-client persistence (cache-aside, refresh-ahead, event-driven invalidation)</p><img src="../architecture/.structurizr/1/images/03-Components-Accounts.svg" alt="Components: accounts"/><p class="note"><em>How to read it.</em> The frequent-client classifier counts activity events in a sliding window and announces `FrequentClientAdded / Removed`; the precompute worker pre-builds the dashboard on that event and on each frequent client's login; the cache invalidator keeps balances fresh from movement events; reads go cache → read model → Core. The Core stays the source of truth: balances show their "as of" time and are re-checked by the Core before money moves.</p></div>
 
-<div class="figure landscape"><p class="caption">Figure 4.4e – Audit Service: idempotent consumer, normalization, hash chain, WORM archive and hot index</p><img src="../architecture/.structurizr/1/images/03-Components-Audit.svg" alt="Components: audit"/></div>
+<div class="figure landscape"><p class="caption">Figure 4.4d – Notification Service: policy, templates, priority lanes, SMS failover, delivery tracking</p><img src="../architecture/.structurizr/1/images/03-Components-Notification.svg" alt="Components: notification"/><p class="note"><em>How to read it.</em> Events come in once (idempotent consumer); the policy decides SMS + email in parallel for regulatory notices; messages are rendered with masking and queued on priority lanes; each provider sits behind an adapter with a circuit breaker; the tracker resends an OTP through the secondary SMS provider if no receipt arrives in 45 s.</p></div>
+
+<div class="figure landscape"><p class="caption">Figure 4.4e – Audit Service: idempotent consumer, normalization, hash chain, WORM archive and hot index</p><img src="../architecture/.structurizr/1/images/03-Components-Audit.svg" alt="Components: audit"/><p class="note"><em>How to read it.</em> Ingestion validates, tokenizes and hash-chains each record; storage writes the WORM archive and a 90-day search index; the query API is read-only and role-based (every query is itself audited); a daily verifier recomputes the chains and signed digests.</p></div>
 
 ### 4.5 Infrastructure (deployment)
 
@@ -286,11 +329,18 @@ Justifications: (1) **meets QAS-10** – a stolen token can't be replayed withou
 
 | Method | Factors | Use |
 | --- | --- | --- |
-| Username + password + **OTP** | Knowledge + possession | Web and mobile; always available (non-biometric alternative) |
+| Username + password + **OTP** | Knowledge + possession | Web and mobile; always available (non-biometric alternative). OTP preference: **in-app confirmation or app TOTP**, **SMS only as fallback** (SIM-swap risk) |
 | **Biometric login** (Face ID / fingerprint) | Possession (device key) + inherence (biometric unlocks it) | Mobile; the key signs the DPoP proof of the refresh-token grant |
 | Passkeys (FIDO2) | Possession + inherence | Optional for web; **not** used as the mobile factor because synced passkeys break "authorized devices only" |
 
 **Step-up with dynamic linking:** transfers to unregistered accounts, new beneficiaries, limit increases, contact changes and device registration require `acr:3`. The API answers `insufficient_user_authentication` (RFC 9470); the app re-authorizes with `authorization_details` (RFC 9396) containing amount and beneficiary; the resulting 2-minute, single-use token is valid only for that transaction. Web customers can approve in the mobile app (decoupled, CIBA).
+
+| Customer action | Required assurance |
+| --- | --- |
+| View balances and movements; own-account transfer | `acr:2`: device key + biometrics (mobile) or password + OTP (web) |
+| Transfer to a registered beneficiary under the threshold | `acr:2` |
+| Amount over the threshold or new beneficiary | `acr:3`: fresh confirmation bound to the transaction (in-app biometric signature or TOTP) + cooling period for new beneficiaries |
+| Change device, password or contact; account recovery | Password + OTP **and** facial re-verification with liveness (+ Registro Civil); notice to old and new contacts |
 
 **Rules from the SB:** lockout after 3 failures with immediate SMS + email; login notification; idle timeout (web 5 min); last-login date shown; old and new contacts notified on change; 24/7 device blocking.
 
@@ -318,6 +368,8 @@ The bank's identity product must support PAR, PKCE, `private_key_jwt`, DPoP, ref
 | Create user in the IdP | Retry; account blocked until the user exists (no compensation) |
 | Device binding + biometric login enrolment | Repeatable at next login |
 | `OnboardingCompleted` via outbox | Audit, Notification, AML, Profile |
+
+**Components (Figure 4.4b′):** device attestation verified server-side before capture; **HMAC-signed vendor webhook** with replay protection (polling fallback); state machine `STARTED → CAPTURED → VERIFIED → SCREENED → APPROVED | UNDER_REVIEW | REJECTED → ACTIVE`; decision engine; **four-eyes manual review** in the Back-office Portal; IdP provisioning with `kyc_level=verified`; case repository with outbox.
 
 **Hand-off to authentication:** the customer sets a password, the app generates the DPoP key in secure hardware and registers it with the Device Service (`acr:3` operation, notified by SMS + email), and biometric login is enrolled.
 
@@ -351,7 +403,7 @@ The bank's identity product must support PAR, PKCE, `private_key_jwt`, DPoP, ref
 | Strangler fig | Gateway routing during migration | Migration risk |
 | Load shedding | Gateway sheds history exports before transfers | QAS-09 |
 
-**Interbank transfer Saga:** `RECEIVED → VALIDATED → DEBITED → SENT → COMPLETED`; a final `pacs.002` rejection triggers a **reversal** (credit back); a timeout means **UNKNOWN** and a status query, never a blind reversal of a possibly irrevocable payment. The customer gets "accepted / pending" in < 3 s (QAS-08) and the final status asynchronously (FR-13).
+**Interbank transfer Saga:** `RECEIVED → VALIDATED → DEBITED → SENT → COMPLETED`; a final `pacs.002` rejection triggers a **reversal** (credit back); a timeout means **UNKNOWN** and a status query, never a blind reversal of a possibly irrevocable payment. The customer gets `202 Accepted` with a status URL in < 3 s (QAS-08) and the final status asynchronously (FR-13). A **compensation handler** reverses debits on final rejection or expiry; a **reconciliation job** compares transfers with Core postings and interbank settlement reports; anything unresolved becomes a **manual operations case** for staff in the Back-office Portal.
 
 ## 9. Data access and frequent-client persistence
 
@@ -359,7 +411,7 @@ The bank's identity product must support PAR, PKCE, `private_key_jwt`, DPoP, ref
 
 **ADR-012 – Data stores:** Aurora PostgreSQL Global Database for transactional services (outbox + idempotency in one ACID transaction), **DynamoDB global tables** for high-volume key-value data and read models (movements ~4 B items, constant latency), **ElastiCache (Valkey)** for caching; only three data technologies. Justifications: right store per access pattern; managed cross-region replication meeting RPO 1 min; small technology set.
 
-**ADR-013 – Frequent-client persistence (statement §3.6).** A frequent client has ≥ 4 logins in 30 days. Four patterns work together:
+**ADR-013 – Frequent-client persistence (statement §3.6).** An **event-driven classifier** keeps a sliding-window activity score per customer and applies a configurable rule behind a feature flag (default ≥ 4 logins in 30 days), publishing `FrequentClientAdded / Removed`. Four patterns work together:
 
 | Pattern | Applied to | Effect |
 | --- | --- | --- |
@@ -465,30 +517,64 @@ Principles: **Zero Trust** (NIST SP 800-207), defence in depth, least privilege,
 
 ## 16. Cost management
 
-Order-of-magnitude monthly estimate (AWS list prices, us-east-1; to be confirmed in the AWS Pricing Calculator):
+Monthly estimate at full scale. **Unit prices were checked on 8 Nov 2026 against the public AWS Price List** (us-east-1 on-demand; CloudFront South America); quantities are the sizing assumptions. Status: Verified = unit price from the Price List; Partial = unit price verified, part of the volume estimated; Estimated = needs a quote. Line-by-line detail and how to reproduce each query: `roadmap-steps/16b-cost-validation.md`.
 
-| Area | USD / month |
-| --- | --- |
-| Compute (EKS, Graviton, Savings Plans on baseline, warm standby) | ~8,000 |
-| Aurora PostgreSQL (5 clusters + Global Database) | ~6,500 |
-| DynamoDB (read model, device, notification, audit index) | ~5,000 |
-| ElastiCache + Global Datastore | ~2,500 |
-| MSK (primary + DR + Replicator) | ~4,500 |
-| Networking (Direct Connect, Transit Gateway, NAT, Network Firewall, endpoints) | ~7,000 |
-| Edge (CloudFront, WAF, Shield Advanced, Bot Control / ATP on login) | ~15,000–22,000 |
-| Security (GuardDuty, Security Hub, Inspector, Macie, Security Lake, KMS, CloudHSM) | ~10,000 |
-| Observability | ~10,000 |
-| Storage and backup | ~1,500 |
-| Email (SES, ~164 M) | ~16,000 |
-| **Production** | **≈ 85,000–95,000** |
-| Non-production (scheduled shutdown) | ≈ 20,000–25,000 |
-| **AWS total** | **≈ 105,000–120,000 (≈ USD 1.3–1.4 M / year)** |
+| Area | Key unit prices (Price List) | USD / month | Status |
+| --- | --- | --- | --- |
+| Compute: EKS (2 clusters) + ~65 m7g.xlarge nodes, Savings Plan on baseline | 0.10 / cluster-h; 0.1632 / node-h | ≈ 6,850 | Verified |
+| Aurora PostgreSQL: 5 clusters + Global Database secondaries, storage, I/O | 1.106 / h (r7g.2xlarge), 0.276 / h (r7g.large), 0.10 / GB-mo | ≈ 6,150 | Verified / Partial |
+| DynamoDB: read model, device, notification log, audit index (global tables), PITR | 0.625 / M writes, 0.125 / M reads, 0.25 / GB-mo | ≈ 8,100 | Partial |
+| ElastiCache Valkey: 9 × r7g.xlarge | 0.3496 / node-h | ≈ 2,300 | Verified |
+| MSK: 9 × kafka.m7g.xlarge, storage, Replicator | 0.408 / broker-h, 0.10 / GB-mo | ≈ 4,100 | Partial |
+| Networking: 2 × 10G Direct Connect, Network Firewall, NAT / TGW / endpoints | 2.25 / port-h; 0.395 / endpoint-h + 0.065 / GB | ≈ 7,800 | Verified / Estimated |
+| Edge: CloudFront (South America), WAF, Bot Control, Fraud Control (ATP) on ~5 M password logins, Shield Advanced | 0.022 / 10k HTTPS req, 0.110 / GB; 0.60 / M req; 10 / M; 1.00 / 1,000 logins; 3,000 / mo | ≈ 18,200 | Verified / Partial |
+| Security: CloudHSM (4 HSMs) + GuardDuty, Security Hub, Inspector, Macie, Security Lake, KMS | 1.60 / HSM-h | ≈ 9,700 | Verified / Estimated |
+| Observability | Usage-based | ≈ 10,000 | Estimated |
+| Storage and backup | Usage-based | ≈ 1,500 | Estimated |
+| Email: Amazon SES, ~164 M | 0.10 / 1,000 | ≈ 16,400 | Verified |
+| **Production** | | **≈ 91,000** (> 60% from verified unit prices) | |
+| Non-production (scheduled shutdown) | | ≈ 20,000–25,000 | Estimated |
+| **AWS total** | | **≈ 111,000–116,000 (≈ USD 1.35 M / year)** | |
 
-**Outside AWS:** SMS ≈ **USD 0.8–3.3 M / month** depending on the negotiated price (7–30× the whole AWS bill), Registro Civil ~USD 15 k, eKYC vendor and licences by quote. **DR cost:** warm standby ≈ USD 10–12 k / month vs ≈ USD 50–60 k for active/active.
+Carrier circuits from Ecuador to the Direct Connect location are not in the AWS bill and need a quote. The biggest single lever found while checking prices: keeping the **audit hot index in one region** (rebuilt from the S3 archive after a failover) and on the Standard-IA table class saves ≈ USD 3 k a month.
+
+**Outside AWS:** SMS ≈ **USD 0.8–3.3 M / month** depending on the negotiated price (7–30× the whole AWS bill; Registro Civil USD 0.30 per check is verified on gob.ec), Registro Civil ~USD 15 k, eKYC vendor and licences by quote. **DR cost:** warm standby ≈ USD 10–12 k / month vs ≈ USD 50–60 k for active/active.
 
 **ADR-021 – Cost optimization:** commit to the steady baseline (Savings Plans, reserved instances), scale everything above it automatically, run on **Graviton**, and manage cost with **FinOps** (mandatory tags checked in the pipeline, budgets and anomaly detection, cost per user / transaction / SMS, monthly reviews). Justifications: a clear baseline with predictable peaks; better price-performance on ARM; cost made visible to each team. Main levers: SMS price negotiation and push where the SB allows it, non-production shutdown, Spot for CI and batch, WAF bot/ATP scoped to login, log classes and tail sampling, S3 lifecycle for audit.
 
-## 17. Architecture decision log
+## 17. Delivery plan and evolution
+
+The architecture above is the **target**. It is reached in **four stages**; each stage must prove something before the next one is paid for, so spend and risk grow with demonstrated demand (ADR-022).
+
+| Stage | Technique | Scope | AWS cost (USD / month) |
+| --- | --- | --- | --- |
+| **1. Pretotype** | Pretotyping: *Fake Door* (a "Transfers" button that measures intent and answers "coming soon"), *Pinocchio* (navigable app), *Mechanical Turk* (staff review onboarding by hand) | App and SPA through the gateway to **mock endpoints generated from the OpenAPI contracts**; eKYC vendor sandbox; feature flags and analytics. **No Core, no real data** | 1,000–2,000 |
+| **2. Read-only MVP** | Real value, low risk | Profile, Accounts, Movements with **hexagonal architecture**; real Core and identity integration; biometric login; basic audit; one region, multi-AZ; pilot cohort | 15,000–25,000 |
+| **3. Transactional** | Iterative expansion: own-account first, then interbank, by cohort behind flags | Transfer Saga, idempotency, outbox, Limits, Risk, Notifications (SMS + email), full Audit, Kafka, real onboarding, step-up; **warm standby DR before transfers open beyond the pilot** | 60,000–80,000 (+ SMS) |
+| **4. Enterprise scale** | Hardening driven by measured load and the regulator | Full multi-region with ARC, frequent-client refresh-ahead at scale, Shield Advanced, CloudHSM, chaos and DR drills, push to reduce SMS | 111,000–116,000 (+ SMS) |
+
+**Go / no-go gates** (falsifiable hypotheses "at least X% of Y will do Z"; thresholds to agree with Product):
+
+| Gate | Hypothesis | If it fails |
+| --- | --- | --- |
+| End of stage 1 | ≥ 70% of pilot users complete login and onboarding unaided; ≥ 25% tap "Transfers" within two weeks | Change the flow or features; don't build the integration yet |
+| End of stage 2 | ≥ 40% of the pilot checks balance or movements weekly; read p95 within target; no Sev-1 in four weeks | Fix experience or performance before adding features |
+| End of stage 3 | ≥ 15% of active users complete a transfer in the first month; success ≥ 99.5%; notification delivery ≥ 99% | Keep transfers behind the flag and fix reliability |
+| End of stage 4 | SLOs met two months in a row; regional DR drill within RTO / RPO | Keep hardening before broad launch |
+
+**Minimum resilience line.** Stage 1 holds no real data. Stage 2 requires multi-AZ, backups with tested restore and everything as code. Before transfers open beyond the pilot (stage 3): warm standby DR and a first drill, or a risk acceptance signed by Risk and Compliance; regulatory notifications live from the first real transfer.
+
+| Technical debt accepted | Paid back when |
+| --- | --- |
+| Mock endpoints (stage 1) | Stage 2 replaces and deletes them |
+| In-process event publisher (stage 2) | Stage 3 plugs Kafka in behind the same port |
+| Single region with restore-based recovery (stage 2) | Warm standby before transfers scale |
+| No refresh-ahead / classifier until stage 4 | Measurements show Core latency or payday load hurting the dashboard SLO |
+| No push channel | SMS cost justifies it and the SB accepts push |
+
+Contracts first (OpenAPI, Kafka schemas), routing by path or cohort at the gateway and hexagonal adapters make a mock and a real service interchangeable without rewriting the apps. A fake-door test in a bank must be honest and reviewed by Legal and Compliance.
+
+## 18. Architecture decision log
 
 Every ADR records its context, the alternatives evaluated, the decision and at least two justifications; the full text is in the repository step notes ([roadmap-steps/](../roadmap-steps/)).
 
@@ -500,7 +586,7 @@ Every ADR records its context, the alternatives evaluated, the decision and at l
 | 004 | Microservices by bounded context (coarse-grained) | Modular monolith; fine-grained microservices | Independent scaling of reads and payday transfers; fault isolation; data boundaries per compliance rules; reuse |
 | 005 | Angular SPA | React, Vue | Complete opinionated framework; secure by default; predictable support |
 | 006 | Flutter | React Native | Tamper resistance; consistent UI on low-end devices; proven in LATAM banking |
-| 007 | Code + PKCE + PAR, FAPI 2.0, DPoP, BFF token handler | ROPC, Implicit, tokens in browser storage, synced passkeys on mobile | Stolen-token resistance; one model for both channels; open-banking standard; biometrics stay on device |
+| 007 | Code + PKCE + PAR, FAPI 2.0, DPoP, BFF token handler; in-app / TOTP second factor, SMS OTP as fallback | ROPC, Implicit, tokens in browser storage, synced passkeys on mobile, SMS-only OTP (SIM swap) | Stolen-token resistance; one model for both channels; open-banking standard; biometrics stay on device |
 | 008 | Specialist eKYC vendor (FacePhi / Jumio PoC) + Registro Civil | Build on Rekognition; other vendors | Document + registry + liveness together; certified liveness evidence; swappable via ACL |
 | 009 | Kong Gateway on EKS | Amazon API Gateway, Apigee, Azure APIM | DPoP/FAPI plugins; flat cost at volume; portable declarative config |
 | 010 | Amazon MSK (Kafka) | Confluent Cloud, SQS/SNS/EventBridge | Replay; per-key ordering; CDC on the same backbone |
@@ -515,38 +601,41 @@ Every ADR records its context, the alternatives evaluated, the decision and at l
 | 019 | OpenTelemetry + AWS-managed Prometheus/Grafana | Datadog, Dynatrace, self-hosted Grafana | Vendor neutrality; telemetry in account; cost follows usage |
 | 020 | Terraform / OpenTofu | AWS CDK, CloudFormation | Multi-provider; plan as change evidence; portability |
 | 021 | Baseline commitments + autoscaling + Graviton + FinOps | On-demand only; full commitment | Predictable baseline; price-performance; visible cost per team |
+| 022 | Staged delivery: pretotype → MVP → transactional → scale, with gates, minimum resilience line and debt register | Big-bang delivery; prototype-then-rewrite | Evidence before investment; cost and risk grow with demand; no throw-away rewrite |
 
-## 18. Risks, open questions and future evolution
+## 19. Risks, open questions and future evolution
 
-| Risk / open question | Mitigation |
-| --- | --- |
-| **SMS cost** at regulatory volume | Negotiate local price; ask the SB whether push to a bound device counts as "mobile messaging" |
-| Core capacity and availability (outside our control) | Caching, CQRS, rate limiting, bulkheads, graceful degradation; Core modernization roadmap |
-| Identity product lacks FAPI features (PAR, DPoP, RAR) | Add them at the gateway or choose a FAPI-certified product |
-| Identity product and payment-network link must be reachable from both regions | Stated as a DR prerequisite |
-| eKYC vendor accuracy on real cédulas and low-end phones | PoC with FacePhi and Jumio before contract |
-| Registro Civil biometric data leak investigation (2026) | Registry match always combined with live liveness |
-| Regulation details to confirm (SB article numbers, 10-year AML retention) | Legal review before go-live |
-| Hyperscaler region in Chile/Colombia may open | Re-evaluate region choice (AWS Chile region announced) |
-| Team skills (Flutter, Kubernetes, Kafka) | Platform team, golden paths, training |
+| Risk / open question | Mitigation | Owner |
+| --- | --- | --- |
+| **SMS cost** at regulatory volume | Negotiate local price; ask the SB whether push to a bound device counts as "mobile messaging" | Product, Procurement, Compliance |
+| Hosting personal data abroad | Processing agreement with contract clauses, bank-managed keys, processing register; hybrid fallback for biometric/KYC evidence | Legal, DPO |
+| Core capacity and availability (outside our control) | Caching, CQRS, rate limiting, bulkheads, graceful degradation; Core modernization roadmap | Architecture, Core team |
+| Identity product lacks FAPI features (PAR, DPoP, RAR) | Add them at the gateway or choose a FAPI-certified product | Security, Architecture |
+| Identity product and payment-network link must be reachable from both regions | Stated as a DR prerequisite | Infrastructure |
+| SIM swap on SMS OTP | In-app confirmation / TOTP first, SMS only as fallback, SIM-change signals | Security, Fraud |
+| eKYC vendor accuracy on real cédulas and low-end phones; Flutter SDK | PoC with FacePhi and Jumio before contract; alternate vendor behind the adapter | Product, Procurement |
+| Registro Civil biometric data leak investigation (2026) | Registry match always combined with live liveness | Fraud, Compliance |
+| Regulation details to confirm (SB article numbers, 10-year AML retention, JPRF third-party articles, cybersecurity standards) | Legal review before go-live | Legal, Compliance |
+| Hyperscaler region in Chile/Colombia may open | Re-evaluate region choice (AWS Chile region announced) | Architecture |
+| Team skills (Flutter, Kubernetes, Kafka) | Platform team, golden paths, training | Engineering management |
 
 **Future evolution:** new channels (chatbot, DEUNA, open finance APIs) reuse the gateway, identity, notifications and audit (QAS-15); bill payments and loans added as new bounded contexts; gradual migration of Core functions behind the anti-corruption layer (strangler fig); active/active for read journeys if latency or availability targets rise.
 
-## 19. Requirement and grading-criteria traceability
+## 20. Requirement and grading-criteria traceability
 
 | Grading criterion | Where answered |
 | --- | --- |
-| 1. Requirements met and justified | §2, §17 (21 ADRs, ≥ 2 justifications each) |
-| 2. Quality and depth of C4 diagrams | §4 (context, 5 container views, 5 component views, deployment, 4 sequences) |
+| 1. Requirements met and justified | §1, §2, §18 (22 ADRs, ≥ 2 justifications each) |
+| 2. Quality and depth of C4 diagrams | §4 (context, 5 container views, 6 layered component views with reading notes, deployment, 4 sequences) |
 | 3. Separation of responsibilities and decoupling | §4.1, §8 (bounded contexts, BFFs, ACLs, events) |
 | 4. Architecture patterns | §8, §9, §10, §11 (Saga, outbox, inbox, circuit breaker, bulkhead, CQRS, cache-aside, refresh-ahead, ACL, BFF, strangler fig) |
 | 5. Integration with external services | §7, §8, §11 (Core, complementary system, BCE ISO 20022, eKYC, Registro Civil, SMS/email/push) |
 | 6. Front-end and mobile architecture | §5 (Angular, Flutter vs React Native, MASVS) |
 | 7. Data access architecture | §9 |
 | 8. Cloud knowledge (AWS) | §4.5, §8, §9, §13 |
-| 9. Cost management | §16 |
+| 9. Cost management | §16 (verified unit prices), §17 (cost per stage) |
 | 10. Authentication architecture | §6 |
-| 11. Onboarding integration | §7, Figure 4.6c |
+| 11. Onboarding integration | §7, Figures 4.4b′ and 4.6c |
 | 12. Audit solution | §10, Figure 4.4e |
 | 13. Banking regulation and security standards | §3, §12 |
 | 14. High availability and fault tolerance | §13 |
@@ -565,7 +654,7 @@ Every ADR records its context, the alternatives evaluated, the decision and at l
 | Audit and frequent-client persistence based on design patterns | §9, §10 |
 | Regulation | §3 |
 | HA, fault tolerance, DR, security, monitoring, operational excellence, auto-healing | §12–15 |
-| Low latency and cost management | §4.5, §9, §16 |
-| ≥ 2 justifications per decision with alternatives | §17 |
+| Low latency and cost management | §4.5, §9, §16, §17 |
+| ≥ 2 justifications per decision with alternatives | §18 |
 
-**Repository:** C4 model ([architecture/workspace.dsl](../architecture/workspace.dsl)), rendered diagrams (PNG and SVG), and the detailed step notes with sources ([roadmap-steps/](../roadmap-steps/)).
+**Repository:** delivery plan (`roadmap-steps/19-delivery-plan.md`), cost validation (`roadmap-steps/16b-cost-validation.md`), C4 model ([architecture/workspace.dsl](../architecture/workspace.dsl)), rendered diagrams (PNG and SVG), and the detailed step notes with sources ([roadmap-steps/](../roadmap-steps/)).

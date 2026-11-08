@@ -294,3 +294,12 @@ CloudFront + WAF + Shield
 - [x] Transfer Saga with compensation, timeout handling and incoming payments
 - [ ] Draw `05-Dynamic-Transfer-Interbank` in Structurizr (Step 17)
 - [ ] **Your review:** check whether BP connects to the RPI directly or through a private payment network, and the timeout values in the BCE technical catalogue
+
+---
+
+## Update (8 Nov 2026): transfer operations
+
+- **Compensation Handler** component: on final rejection or expiry, reverses the debit, publishes `TransferFailed` / `TransferReversed`, and opens a **manual operations case** for anything it can't resolve.
+- **Reconciliation Job**: compares transfers with Core postings and interbank **settlement reports**; every difference becomes a case.
+- **Operations Case API**: staff resolve cases from the Back-office Portal.
+- `POST /v1/transfers` returns **202 Accepted with a status URL** for interbank transfers.

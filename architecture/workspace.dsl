@@ -21,7 +21,7 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
         // =====================================================================
         customer = person "Customer" "Retail banking client. Checks balances and movements, makes transfers and payments." "Customer"
         prospect = person "New customer" "Person opening an account through mobile onboarding with facial recognition." "Customer"
-        compliance = person "Compliance Officer" "BP staff member who investigates the audit trail for the SB, UAFE and customer claims." "Staff"
+        compliance = person "Operations & Compliance Staff" "BP staff: reviews doubtful onboarding cases (four-eyes), resolves manual transfer cases, investigates the audit trail for the SB, UAFE and customer claims." "Staff"
 
         // =====================================================================
         // The system being designed
@@ -31,6 +31,7 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
             // ---------- Channels ----------
             spa = container "Web App (SPA)" "Customer web banking UI. Holds no tokens: talks only to its BFF with a session cookie." "Angular / TypeScript (S3 + CloudFront)" "WebApp"
             mobile = container "Mobile App" "Mobile banking, onboarding with facial recognition, biometric login, device binding. RASP, attestation, certificate pinning." "Flutter (iOS / Android)" "MobileApp"
+            backoffice = container "Back-office Portal" "Internal web app for staff: manual onboarding review, manual transfer cases, audit queries. Staff SSO with FIDO2 MFA, role-based access." "Angular / TypeScript (internal)" "WebApp"
 
             // ---------- Edge and integration layer ----------
             edge = container "Edge (CDN + WAF)" "TLS termination, WAF (OWASP rules, bot control, account takeover prevention), DDoS protection, serves the SPA." "Amazon CloudFront + AWS WAF + Shield Advanced" "Infrastructure"
@@ -50,30 +51,64 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
 
             // ---------- Domain services ----------
             device = container "Device Service" "Device registration and binding, device trust status, device blocking." "Java 21 / Spring Boot"
-            onboarding = container "Onboarding Service" "Orchestrates the onboarding Saga: eKYC result, Registro Civil, AML screening, account opening, IdP user." "Java 21 / Spring Boot"
+            onboarding = container "Onboarding Service" "Orchestrates the onboarding Saga: eKYC result, Registro Civil, AML screening, account opening, IdP user." "Java 21 / Spring Boot" {
+                group "API layer: identity, attestation, webhook authentication" {
+                    onbApi = component "Onboarding API" "Start case, submit data, get status. Returns only safe status messages to the app." "Spring Web"
+                    attestation = component "Device Attestation Verifier" "Verifies Play Integrity / App Attest server-side; rejects emulators and tampered apps before any capture." "Java"
+                    webhook = component "Vendor Webhook Endpoint" "Receives the verification result: HMAC signature, timestamp and replay protection. Never trusts the app." "Spring Web"
+                    reviewApi = component "Manual Review API" "Staff role only; four-eyes rule; lists queued cases and records the reviewer's decision." "Spring Web"
+                }
+                group "Business layer: state machine and decisions" {
+                    orchestrator = component "Onboarding Orchestrator" "Saga / state machine: STARTED > CAPTURED > VERIFIED > SCREENED > APPROVED | UNDER_REVIEW | REJECTED > ACTIVE; records consent." "Java"
+                    decisionEngine = component "Decision Engine" "Combines vendor scores, registry match and screening: approve, review or reject. Rejections always reviewed by a person." "Rules"
+                }
+                group "Integration and data layer: adapters, provisioning, repository" {
+                    vendorAdapter = component "eKYC Vendor Adapter" "Anti-corruption layer: creates verification sessions, polls results if a webhook is lost; vendor is replaceable." "Java"
+                    registryAdapter = component "Registro Civil Adapter" "Validates ID data, photo and fingerprint code (SNIC)." "Java"
+                    screeningClient = component "Screening Client" "PEP, sanctions, UAFE lists and duplicate-identity check via AML Monitoring." "Resilience4j"
+                    accountClient = component "Account Opening Client" "Creates customer and account through the Core Adapter, idempotent on case ID." "Resilience4j"
+                    idpClient = component "IdP Provisioning Client" "Creates the user with kyc_level=verified (OAuth client credentials, admin API)." "Java"
+                    onbRepo = component "Case Repository & Outbox" "Case state and events in one transaction; relay publishes OnboardingCompleted / Rejected." "Spring Data JPA + Outbox"
+                }
+            }
             profile = container "Customer Profile Service" "Basic and detailed customer data, contact data, last login, preferences." "Java 21 / Spring Boot"
 
             accounts = container "Accounts Service" "Balances and dashboard for the customer. Frequent-client persistence: cache-aside, refresh-ahead, event-driven invalidation." "Java 21 / Spring Boot" {
-                accApi = component "Accounts API" "Returns balances and the dashboard snapshot." "Spring Web"
-                cacheAside = component "Balance & Dashboard Cache" "Cache-aside access with TTLs (balance 60 s, dashboard 5 min), request coalescing, jittered TTL." "Spring Data Redis"
-                coreReader = component "Core Balance Reader" "Reads balances through the Core Adapter with bulkhead, rate limit and circuit breaker; stale-while-revalidate fallback." "Resilience4j"
-                precompute = component "Dashboard Precompute Worker" "Refresh-ahead: on LoginSucceeded of a frequent client, builds the dashboard snapshot before the first screen." "Spring Kafka"
-                invalidator = component "Cache Invalidator" "Evicts or updates balances and dashboards on movement and transfer events." "Spring Kafka"
-                classifier = component "Frequent Client Classifier" "Daily job: flags customers with >= 4 logins in 30 days." "Spring Batch"
+                group "API layer" {
+                    accApi = component "Accounts API" "Returns balances and the dashboard snapshot (with 'as of' time)." "Spring Web"
+                }
+                group "Business layer: frequent-client persistence" {
+                    cacheAside = component "Balance & Dashboard Cache" "Cache-aside: cache, then read model, then Core. TTLs (balance 60 s, dashboard 5 min), request coalescing, jittered TTL." "Spring Data Redis"
+                    precompute = component "Dashboard Precompute Worker" "Refresh-ahead: on LoginSucceeded or FrequentClientAdded, builds the dashboard snapshot before the first screen." "Spring Kafka"
+                    invalidator = component "Cache Invalidator" "Evicts or updates balances and dashboards on movement and transfer events." "Spring Kafka"
+                    classifier = component "Frequent Client Classifier" "Event-driven sliding-window activity score (logins, accesses); configurable rule behind a feature flag (default >= 4 logins in 30 days); publishes FrequentClientAdded / Removed." "Spring Kafka"
+                }
+                group "Integration layer" {
+                    coreReader = component "Core Balance Reader" "Reads balances through the Core Adapter with bulkhead, rate limit and circuit breaker; stale-while-revalidate fallback." "Resilience4j"
+                }
             }
 
             movements = container "Movements Service" "Movement history (CQRS read model, 13 months online); projector fed by Core CDC and transfer events." "Java 21 / Spring Boot"
 
             transfer = container "Transfer Service" "Own-account and interbank transfers and payments. Orchestrated Saga, idempotency, step-up check, outbox." "Java 21 / Spring Boot" {
-                api = component "Transfer API" "POST /v1/transfers, GET status. Validates request and object ownership (sub owns the account)." "Spring Web"
-                idempotency = component "Idempotency Filter" "Stores Idempotency-Key with its result; a retry returns the same result (0 duplicate debits)." "Spring filter"
-                stepUp = component "Step-up Checker" "Requires acr:3 for unregistered beneficiaries / high risk; checks authorization_details match the request (dynamic linking)." "Java"
-                saga = component "Transfer Saga Orchestrator" "Persisted state machine RECEIVED > VALIDATED > DEBITED > SENT > COMPLETED, with reversal on final rejection and status query on timeout." "Java"
-                decisionClient = component "Limits & Risk Client" "Calls Beneficiary & Limits and Risk Scoring with 300 ms timeouts." "Resilience4j"
-                coreClient = component "Core Posting Client" "Debits, credits and reversals with idempotency key; 2 s timeout, circuit breaker, posting bulkhead." "Resilience4j"
-                repo = component "Transfer Repository" "Orders, saga state, idempotency keys." "Spring Data JPA"
-                outbox = component "Outbox Writer & Relay" "Writes events in the same DB transaction as the state change; relay publishes them to Kafka." "Transactional Outbox"
-                inbox = component "Interbank Events Consumer" "Consumes PaymentAccepted / Rejected / Irrevocable; ignores duplicates (inbox)." "Spring Kafka"
+                group "API layer: identity, authorization, step-up, idempotency" {
+                    api = component "Transfer API" "POST /v1/transfers (202 Accepted + status URL), GET status. Validates request and object ownership (sub owns the account)." "Spring Web"
+                    idempotency = component "Idempotency Filter" "Stores Idempotency-Key with its result; a retry returns the same result (0 duplicate debits)." "Spring filter"
+                    stepUp = component "Step-up Checker" "Requires acr:3 for unregistered beneficiaries / high risk; checks authorization_details match the request (dynamic linking)." "Java"
+                    opsApi = component "Operations Case API" "Staff role only: lists and resolves transfers that need manual action." "Spring Web"
+                }
+                group "Business layer: Saga, compensation, reconciliation" {
+                    saga = component "Transfer Saga Orchestrator" "Persisted state machine RECEIVED > VALIDATED > DEBITED > SENT > COMPLETED, retries with backoff, status query on timeout." "Java"
+                    compensation = component "Compensation Handler" "On final rejection or expiry: reverses the debit, publishes TransferFailed; unresolved cases go to manual operations." "Saga compensation"
+                    reconciliation = component "Reconciliation Job" "Compares transfers with Core postings and interbank settlement reports; opens a case for every difference." "Scheduled job"
+                    inbox = component "Interbank Events Consumer" "Consumes PaymentAccepted / Rejected / Irrevocable; ignores duplicates (inbox)." "Spring Kafka"
+                }
+                group "Integration and data layer: repository, outbox, clients" {
+                    decisionClient = component "Limits & Risk Client" "Calls Beneficiary & Limits and Risk Scoring with 300 ms timeouts." "Resilience4j"
+                    coreClient = component "Core Posting Client" "Debits, credits and reversals with idempotency key; 2 s timeout, circuit breaker, posting bulkhead." "Resilience4j"
+                    repo = component "Transfer Repository" "Orders, saga state, idempotency keys, manual cases." "Spring Data JPA"
+                    outbox = component "Outbox Writer & Relay" "Writes events in the same DB transaction as the state change; relay publishes them to Kafka." "Transactional Outbox"
+                }
             }
 
             beneficiary = container "Beneficiary & Limits Service" "Registered beneficiaries, customer-set limits, cooling period for new beneficiaries." "Java 21 / Spring Boot"
@@ -82,25 +117,37 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
             aml = container "AML Monitoring Service" "Asynchronous transaction monitoring and onboarding screening (PEP, sanctions, UAFE lists); cases for compliance." "Java 21 / Spring Boot"
 
             notification = container "Notification Service" "Sends regulatory notices by SMS and email simultaneously (+ push); provider failover; delivery tracking." "Java 21 / Spring Boot" {
-                notifConsumer = component "Event Consumer" "Consumes domain and security events; idempotent by event ID." "Spring Kafka"
-                policy = component "Notification Policy" "Decides channels per event: regulatory = SMS + email in parallel; push as complement." "Java"
-                resolver = component "Recipient Resolver" "Gets contact data from Customer Profile (old and new contact on changes)." "Java"
-                renderer = component "Template Renderer" "Versioned Spanish templates, account masking, no links in SMS." "Java"
-                dispatcher = component "Priority Dispatcher" "Puts messages on priority lanes (OTP/security first, then transactions, then push)." "Spring Kafka"
-                smsSender = component "SMS Sender" "Primary local aggregator, failover to secondary provider; circuit breaker, health score." "Adapter + Strategy"
-                emailSender = component "Email Sender" "Amazon SES with second-region fallback." "Adapter"
-                pushSender = component "Push Sender" "FCM / APNs." "Adapter"
-                tracker = component "Delivery Tracker" "Stores sent / delivered / failed per message and provider; resends OTPs via the secondary after 45 s without receipt." "Java"
+                group "Event layer" {
+                    notifConsumer = component "Event Consumer" "Consumes domain and security events; idempotent by event ID." "Spring Kafka"
+                }
+                group "Business layer: policy, recipients, templates" {
+                    policy = component "Notification Policy" "Decides channels per event: regulatory = SMS + email in parallel; push as complement." "Java"
+                    resolver = component "Recipient Resolver" "Gets contact data from Customer Profile (old and new contact on changes)." "Java"
+                    renderer = component "Template Renderer" "Versioned Spanish templates, account masking, no links in SMS." "Java"
+                    dispatcher = component "Priority Dispatcher" "Puts messages on priority lanes (OTP/security first, then transactions, then push)." "Spring Kafka"
+                }
+                group "Integration layer: provider adapters and tracking" {
+                    smsSender = component "SMS Sender" "Primary local aggregator, failover to secondary provider; circuit breaker, health score." "Adapter + Strategy"
+                    emailSender = component "Email Sender" "Amazon SES with second-region fallback." "Adapter"
+                    pushSender = component "Push Sender" "FCM / APNs." "Adapter"
+                    tracker = component "Delivery Tracker" "Stores sent / delivered / failed per message and provider; resends OTPs via the secondary after 45 s without receipt." "Java"
+                }
             }
 
             audit = container "Audit Service" "Records every customer action and staff access into immutable, tamper-evident storage; compliance query API." "Java 21 / Spring Boot" {
-                auditConsumer = component "Audit Event Consumer" "Consumes audit.* topics; idempotent by auditId." "Spring Kafka"
-                normalizer = component "Validator & Normalizer" "Checks the record schema, tokenizes personal data." "Java"
-                chainer = component "Hash Chainer & Digest Signer" "Hash chain per partition; signs a Merkle root every 5 min with a KMS key." "Java + AWS KMS"
-                archiveWriter = component "Archive Writer" "Writes Parquet files to the WORM archive." "Java"
-                indexWriter = component "Hot Index Writer" "Writes the last 90 days of searchable fields." "Java"
-                queryApi = component "Audit Query API" "Search by customer, staff user, correlation ID or transaction; every query is itself audited." "Spring Web + Athena"
-                verifier = component "Integrity Verifier" "Daily job: recomputes chains and digests, alerts on mismatch." "Spring Batch"
+                group "Ingestion layer" {
+                    auditConsumer = component "Audit Event Consumer" "Consumes audit.* topics; idempotent by auditId." "Spring Kafka"
+                    normalizer = component "Validator & Normalizer" "Checks the record schema, tokenizes personal data." "Java"
+                    chainer = component "Hash Chainer & Digest Signer" "Hash chain per partition; signs a Merkle root every 5 min with a KMS key." "Java + AWS KMS"
+                }
+                group "Storage layer" {
+                    archiveWriter = component "Archive Writer" "Writes Parquet files to the WORM archive." "Java"
+                    indexWriter = component "Hot Index Writer" "Writes the last 90 days of searchable fields." "Java"
+                }
+                group "Query and integrity layer" {
+                    queryApi = component "Audit Query API" "Search by customer, staff user, correlation ID or transaction; role-based, read-only; every query is itself audited." "Spring Web + Athena"
+                    verifier = component "Integrity Verifier" "Daily job: recomputes chains and digests, alerts on mismatch." "Spring Batch"
+                }
             }
 
             // ---------- Adapters (anti-corruption layers) ----------
@@ -147,8 +194,8 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
         // =====================================================================
         customer -> bp "Checks balances and movements, makes transfers and payments using" "HTTPS"
         prospect -> bp "Opens an account with facial recognition using" "HTTPS"
-        customer -> identity "Logs in (password + OTP) through" "HTTPS, system browser"
-        compliance -> bp "Investigates the audit trail using" "HTTPS, SSO + MFA"
+        customer -> identity "Logs in (password + in-app OTP; SMS OTP as fallback) through" "HTTPS, system browser"
+        compliance -> bp "Reviews onboarding cases, resolves manual transfer cases and investigates the audit trail using" "HTTPS, staff SSO + FIDO2 MFA"
         bp -> identity "Authenticates users and gets tokens from" "OIDC / FAPI 2.0"
         bp -> core "Reads balances and posts transfers to" "REST / SOAP over Direct Connect"
         bp -> customerInfo "Reads detailed customer data from" "REST / SOAP over Direct Connect"
@@ -263,7 +310,13 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
         bp.audit -> bp.broker "Consumes audit records and domain events from" "Kafka" "Async"
         bp.audit -> bp.auditArchive "Writes immutable records and signed digests to" "HTTPS (S3 API)"
         bp.audit -> bp.auditIndex "Writes the 90-day search index to" "HTTPS (DynamoDB API)"
-        compliance -> bp.audit "Queries the audit trail through the back-office console" "HTTPS, SSO + MFA"
+        compliance -> bp.backoffice "Uses" "HTTPS, staff SSO + FIDO2 MFA"
+        bp.backoffice -> identity "Signs staff in with" "OIDC, SSO + FIDO2 MFA"
+        bp.backoffice -> bp.gateway "Calls staff APIs through (internal route, role-based scopes)" "HTTPS"
+        bp.gateway -> bp.onboarding "Routes staff review calls to" "HTTPS / mTLS"
+        bp.gateway -> bp.audit "Routes audit queries to" "HTTPS / mTLS"
+        bp.gateway -> bp.transfer "Routes manual-case calls to" "HTTPS / mTLS"
+        biometrics -> bp.onboarding "Sends verification results to (signed webhook)" "HTTPS, HMAC signature"
 
         // =====================================================================
         // Component-level relationships
@@ -303,6 +356,36 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
         bp.transfer.outbox -> bp.broker "Relays events and SendPayment commands to" "Kafka" "Async"
         bp.transfer.inbox -> bp.broker "Consumes payment events from" "Kafka" "Async"
         bp.transfer.inbox -> bp.transfer.saga "Advances or compensates the saga in"
+        bp.transfer.saga -> bp.transfer.compensation "Hands failed or expired transfers to"
+        bp.transfer.compensation -> bp.transfer.coreClient "Reverses the debit through"
+        bp.transfer.compensation -> bp.transfer.repo "Opens manual cases in"
+        bp.transfer.compensation -> bp.transfer.outbox "Publishes TransferFailed / TransferReversed with"
+        bp.transfer.reconciliation -> bp.transfer.repo "Reads transfers and opens cases in"
+        bp.transfer.reconciliation -> bp.coreAdapter "Reads Core postings through" "REST / mTLS"
+        bp.transfer.reconciliation -> bp.interbank "Reads settlement reports from" "REST / mTLS"
+        bp.transfer.opsApi -> bp.transfer.repo "Lists and resolves manual cases in"
+
+        // Onboarding Service
+        bp.mobileBff -> bp.onboarding.onbApi "Runs onboarding cases with" "REST / mTLS"
+        bp.onboarding.onbApi -> bp.onboarding.attestation "Verifies the device with"
+        bp.onboarding.onbApi -> bp.onboarding.orchestrator "Starts and advances cases in"
+        biometrics -> bp.onboarding.webhook "Sends verification results to" "HTTPS, HMAC signature"
+        bp.onboarding.webhook -> bp.onboarding.orchestrator "Passes verified result to"
+        bp.onboarding.reviewApi -> bp.onboarding.orchestrator "Records reviewer decisions in"
+        bp.onboarding.orchestrator -> bp.onboarding.vendorAdapter "Creates verification sessions / polls results with"
+        bp.onboarding.vendorAdapter -> biometrics "Creates sessions and fetches results from" "HTTPS"
+        bp.onboarding.orchestrator -> bp.onboarding.registryAdapter "Validates identity with"
+        bp.onboarding.registryAdapter -> registroCivil "Validates ID data, photo and fingerprint code with" "HTTPS (SNIC)"
+        bp.onboarding.orchestrator -> bp.onboarding.screeningClient "Screens the applicant with"
+        bp.onboarding.screeningClient -> bp.aml "Screens PEP, sanctions, UAFE lists and duplicates with" "REST / mTLS"
+        bp.onboarding.orchestrator -> bp.onboarding.decisionEngine "Asks for approve / review / reject"
+        bp.onboarding.orchestrator -> bp.onboarding.accountClient "Opens the account with"
+        bp.onboarding.accountClient -> bp.coreAdapter "Creates customer and account through" "REST / mTLS"
+        bp.onboarding.orchestrator -> bp.onboarding.idpClient "Provisions the user with"
+        bp.onboarding.idpClient -> identity "Creates the user (kyc_level=verified) in" "Admin API / SCIM"
+        bp.onboarding.orchestrator -> bp.onboarding.onbRepo "Persists state and events with"
+        bp.onboarding.onbRepo -> bp.onboardingDb "Writes cases, consent and outbox to" "SQL / TLS"
+        bp.onboarding.onbRepo -> bp.broker "Relays OnboardingCompleted / Rejected to" "Kafka" "Async"
 
         // Accounts Service (frequent-client persistence)
         bp.mobileBff -> bp.accounts.accApi "Gets balances and dashboard from" "REST / mTLS"
@@ -317,8 +400,8 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
         bp.accounts.precompute -> bp.accounts.cacheAside "Stores dashboard snapshot in"
         bp.accounts.invalidator -> bp.broker "Consumes movement and transfer events from" "Kafka" "Async"
         bp.accounts.invalidator -> bp.accounts.cacheAside "Evicts or updates keys in"
-        bp.accounts.classifier -> bp.broker "Reads login events from" "Kafka" "Async"
-        bp.accounts.classifier -> bp.cache "Stores frequent-client flags in" "TLS"
+        bp.accounts.classifier -> bp.broker "Consumes login and access events from; publishes FrequentClientAdded / Removed to" "Kafka" "Async"
+        bp.accounts.classifier -> bp.cache "Keeps sliding-window activity counters and flags in" "TLS"
         bp.accounts.precompute -> bp.accounts.classifier "Checks frequent-client flag with"
 
         // Notification Service
@@ -352,7 +435,9 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
         bp.audit.chainer -> bp.audit.indexWriter "Passes chained records to"
         bp.audit.archiveWriter -> bp.auditArchive "Writes Parquet files and signed digests to" "HTTPS (S3 API)"
         bp.audit.indexWriter -> bp.auditIndex "Writes index items to" "HTTPS (DynamoDB API)"
-        compliance -> bp.audit.queryApi "Searches the audit trail with" "HTTPS, SSO + MFA"
+        bp.gateway.router -> bp.audit.queryApi "Routes audit queries to" "HTTPS / mTLS"
+        bp.gateway.router -> bp.onboarding.reviewApi "Routes staff review calls to" "HTTPS / mTLS"
+        bp.gateway.router -> bp.transfer.opsApi "Routes manual-case calls to" "HTTPS / mTLS"
         bp.audit.queryApi -> bp.auditIndex "Searches recent records in" "HTTPS (DynamoDB API)"
         bp.audit.queryApi -> bp.auditArchive "Queries history in (Athena)" "HTTPS"
         bp.audit.verifier -> bp.auditArchive "Recomputes chains and digests from" "HTTPS (S3 API)"
@@ -542,7 +627,7 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
         }
 
         container bp "02a-Containers-Channels" "Channels, edge, API Gateway and BFFs: how the web and mobile apps reach the platform, and where tokens are handled." {
-            include customer prospect bp.spa bp.mobile bp.edge bp.gateway bp.webBff bp.mobileBff identity biometrics push bp.cache
+            include customer prospect compliance bp.spa bp.mobile bp.backoffice bp.edge bp.gateway bp.webBff bp.mobileBff identity biometrics push bp.cache
             autolayout lr 300 150
         }
 
@@ -557,38 +642,205 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
         }
 
         container bp "02d-Containers-Onboarding" "Onboarding with facial recognition: eKYC vendor, Registro Civil, AML screening, account opening, user creation, device binding." {
-            include prospect bp.mobile bp.mobileBff bp.onboarding bp.onboardingDb bp.device bp.deviceDb bp.aml bp.coreAdapter bp.broker biometrics registroCivil identity core
+            include prospect compliance bp.mobile bp.backoffice bp.gateway bp.mobileBff bp.onboarding bp.onboardingDb bp.device bp.deviceDb bp.aml bp.coreAdapter bp.broker biometrics registroCivil identity core
             autolayout lr 300 150
         }
 
         container bp "02e-Containers-Notifications-Audit" "Event-driven support services: notifications over 2 channels with provider failover, and the immutable audit trail." {
-            include customer compliance bp.broker bp.notification bp.notificationDb bp.profile bp.audit bp.auditIndex bp.auditArchive bp.aml smsA smsB email push
+            include customer compliance bp.backoffice bp.gateway bp.broker bp.notification bp.notificationDb bp.profile bp.audit bp.auditIndex bp.auditArchive bp.aml smsA smsB email push
             autolayout lr 300 150
         }
 
         // ---------- Level 3 ----------
         component bp.gateway "03-Components-Gateway" "API Gateway (Kong) plugin chain: token, DPoP and acr checks before routing (Step 6, ADR-009)." {
             include *
+            exclude "bp.gateway -> bp.broker"
+            exclude "bp.gateway -> identity"
+            exclude "identity -> bp.broker"
+            exclude "bp.aml -> bp.broker"
+            exclude "bp.risk -> bp.broker"
+            exclude "bp.beneficiary -> bp.broker"
+            exclude "bp.interbank -> bp.broker"
+            exclude "bp.interbank -> bp.coreAdapter"
+            exclude "bp.webBff -> bp.beneficiary"
+            exclude "bp.mobileBff -> bp.beneficiary"
+            exclude "bp.risk -> bp.cache"
+            exclude "bp.movements -> bp.broker"
+            exclude "bp.movements -> bp.coreAdapter"
+            exclude "bp.movements -> bp.movementsDb"
+            exclude "bp.profile -> bp.broker"
+            exclude "bp.profile -> bp.coreAdapter"
+            exclude "bp.profile -> bp.cache"
+            exclude "bp.profile -> bp.profileDb"
+            exclude "bp.profile -> bp.customerInfoAdapter"
+            exclude "bp.webBff -> bp.cache"
+            exclude "bp.gateway -> bp.cache"
+            exclude "bp.mobileBff -> bp.movements"
+            exclude "bp.webBff -> bp.movements"
+            exclude "bp.mobileBff -> bp.profile"
+            exclude "bp.webBff -> bp.profile"
+            exclude "bp.audit -> bp.broker"
+            exclude "bp.notification -> bp.broker"
             autolayout lr 250 150
         }
 
         component bp.transfer "03-Components-Transfer" "Transfer Service: idempotency, step-up, orchestrated Saga, circuit-broken Core calls, transactional outbox and inbox (Step 8)." {
             include *
+            exclude "bp.gateway -> bp.broker"
+            exclude "bp.gateway -> identity"
+            exclude "identity -> bp.broker"
+            exclude "bp.aml -> bp.broker"
+            exclude "bp.risk -> bp.broker"
+            exclude "bp.beneficiary -> bp.broker"
+            exclude "bp.interbank -> bp.broker"
+            exclude "bp.interbank -> bp.coreAdapter"
+            exclude "bp.webBff -> bp.beneficiary"
+            exclude "bp.mobileBff -> bp.beneficiary"
+            exclude "bp.risk -> bp.cache"
+            exclude "bp.movements -> bp.broker"
+            exclude "bp.movements -> bp.coreAdapter"
+            exclude "bp.movements -> bp.movementsDb"
+            exclude "bp.profile -> bp.broker"
+            exclude "bp.profile -> bp.coreAdapter"
+            exclude "bp.profile -> bp.cache"
+            exclude "bp.profile -> bp.profileDb"
+            exclude "bp.profile -> bp.customerInfoAdapter"
+            exclude "bp.webBff -> bp.cache"
+            exclude "bp.gateway -> bp.cache"
+            exclude "bp.mobileBff -> bp.movements"
+            exclude "bp.webBff -> bp.movements"
+            exclude "bp.mobileBff -> bp.profile"
+            exclude "bp.webBff -> bp.profile"
+            exclude "bp.audit -> bp.broker"
+            exclude "bp.notification -> bp.broker"
+            autolayout lr 250 150
+        }
+
+        component bp.onboarding "03-Components-Onboarding" "Onboarding Service: device attestation, signed vendor webhook, state machine, decision engine, four-eyes manual review, adapters and IdP provisioning (Step 7, ADR-008)." {
+            include *
+            exclude "bp.gateway -> bp.broker"
+            exclude "bp.gateway -> identity"
+            exclude "identity -> bp.broker"
+            exclude "bp.aml -> bp.broker"
+            exclude "bp.risk -> bp.broker"
+            exclude "bp.beneficiary -> bp.broker"
+            exclude "bp.interbank -> bp.broker"
+            exclude "bp.interbank -> bp.coreAdapter"
+            exclude "bp.webBff -> bp.beneficiary"
+            exclude "bp.mobileBff -> bp.beneficiary"
+            exclude "bp.risk -> bp.cache"
+            exclude "bp.movements -> bp.broker"
+            exclude "bp.movements -> bp.coreAdapter"
+            exclude "bp.movements -> bp.movementsDb"
+            exclude "bp.profile -> bp.broker"
+            exclude "bp.profile -> bp.coreAdapter"
+            exclude "bp.profile -> bp.cache"
+            exclude "bp.profile -> bp.profileDb"
+            exclude "bp.profile -> bp.customerInfoAdapter"
+            exclude "bp.webBff -> bp.cache"
+            exclude "bp.gateway -> bp.cache"
+            exclude "bp.mobileBff -> bp.movements"
+            exclude "bp.webBff -> bp.movements"
+            exclude "bp.mobileBff -> bp.profile"
+            exclude "bp.webBff -> bp.profile"
+            exclude "bp.audit -> bp.broker"
+            exclude "bp.notification -> bp.broker"
             autolayout lr 250 150
         }
 
         component bp.accounts "03-Components-Accounts" "Accounts Service: frequent-client persistence with cache-aside, refresh-ahead and event-driven invalidation (Step 9, ADR-013)." {
             include *
+            exclude "bp.gateway -> bp.broker"
+            exclude "bp.gateway -> identity"
+            exclude "identity -> bp.broker"
+            exclude "bp.aml -> bp.broker"
+            exclude "bp.risk -> bp.broker"
+            exclude "bp.beneficiary -> bp.broker"
+            exclude "bp.interbank -> bp.broker"
+            exclude "bp.interbank -> bp.coreAdapter"
+            exclude "bp.webBff -> bp.beneficiary"
+            exclude "bp.mobileBff -> bp.beneficiary"
+            exclude "bp.risk -> bp.cache"
+            exclude "bp.movements -> bp.broker"
+            exclude "bp.movements -> bp.coreAdapter"
+            exclude "bp.movements -> bp.movementsDb"
+            exclude "bp.profile -> bp.broker"
+            exclude "bp.profile -> bp.coreAdapter"
+            exclude "bp.profile -> bp.cache"
+            exclude "bp.profile -> bp.profileDb"
+            exclude "bp.profile -> bp.customerInfoAdapter"
+            exclude "bp.webBff -> bp.cache"
+            exclude "bp.gateway -> bp.cache"
+            exclude "bp.mobileBff -> bp.movements"
+            exclude "bp.webBff -> bp.movements"
+            exclude "bp.mobileBff -> bp.profile"
+            exclude "bp.webBff -> bp.profile"
+            exclude "bp.audit -> bp.broker"
+            exclude "bp.notification -> bp.broker"
             autolayout lr 250 150
         }
 
         component bp.notification "03-Components-Notification" "Notification Service: policy, templates, priority lanes, SMS failover and delivery tracking (Step 11, ADR-016)." {
             include *
+            exclude "bp.gateway -> bp.broker"
+            exclude "bp.gateway -> identity"
+            exclude "identity -> bp.broker"
+            exclude "bp.aml -> bp.broker"
+            exclude "bp.risk -> bp.broker"
+            exclude "bp.beneficiary -> bp.broker"
+            exclude "bp.interbank -> bp.broker"
+            exclude "bp.interbank -> bp.coreAdapter"
+            exclude "bp.webBff -> bp.beneficiary"
+            exclude "bp.mobileBff -> bp.beneficiary"
+            exclude "bp.risk -> bp.cache"
+            exclude "bp.movements -> bp.broker"
+            exclude "bp.movements -> bp.coreAdapter"
+            exclude "bp.movements -> bp.movementsDb"
+            exclude "bp.profile -> bp.broker"
+            exclude "bp.profile -> bp.coreAdapter"
+            exclude "bp.profile -> bp.cache"
+            exclude "bp.profile -> bp.profileDb"
+            exclude "bp.profile -> bp.customerInfoAdapter"
+            exclude "bp.webBff -> bp.cache"
+            exclude "bp.gateway -> bp.cache"
+            exclude "bp.mobileBff -> bp.movements"
+            exclude "bp.webBff -> bp.movements"
+            exclude "bp.mobileBff -> bp.profile"
+            exclude "bp.webBff -> bp.profile"
+            exclude "bp.audit -> bp.broker"
+            exclude "bp.notification -> bp.broker"
             autolayout lr 250 150
         }
 
         component bp.audit "03-Components-Audit" "Audit Service: idempotent consumer, normalization, hash chain and signed digests, WORM archive and hot index (Step 10, ADR-015)." {
             include *
+            exclude "bp.gateway -> bp.broker"
+            exclude "bp.gateway -> identity"
+            exclude "identity -> bp.broker"
+            exclude "bp.aml -> bp.broker"
+            exclude "bp.risk -> bp.broker"
+            exclude "bp.beneficiary -> bp.broker"
+            exclude "bp.interbank -> bp.broker"
+            exclude "bp.interbank -> bp.coreAdapter"
+            exclude "bp.webBff -> bp.beneficiary"
+            exclude "bp.mobileBff -> bp.beneficiary"
+            exclude "bp.risk -> bp.cache"
+            exclude "bp.movements -> bp.broker"
+            exclude "bp.movements -> bp.coreAdapter"
+            exclude "bp.movements -> bp.movementsDb"
+            exclude "bp.profile -> bp.broker"
+            exclude "bp.profile -> bp.coreAdapter"
+            exclude "bp.profile -> bp.cache"
+            exclude "bp.profile -> bp.profileDb"
+            exclude "bp.profile -> bp.customerInfoAdapter"
+            exclude "bp.webBff -> bp.cache"
+            exclude "bp.gateway -> bp.cache"
+            exclude "bp.mobileBff -> bp.movements"
+            exclude "bp.webBff -> bp.movements"
+            exclude "bp.mobileBff -> bp.profile"
+            exclude "bp.webBff -> bp.profile"
+            exclude "bp.audit -> bp.broker"
+            exclude "bp.notification -> bp.broker"
             autolayout lr 250 150
         }
 
@@ -599,7 +851,7 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
             bp.edge -> bp.gateway "Forwards"
             bp.gateway -> bp.webBff "Routes"
             bp.webBff -> identity "Pushes authorization request (PAR, PKCE challenge, acr:2)"
-            customer -> identity "Enters username, password and OTP"
+            customer -> identity "Enters username, password and OTP (in-app preferred, SMS fallback)"
             bp.webBff -> identity "Exchanges code + PKCE verifier for tokens (private_key_jwt)"
             bp.webBff -> bp.cache "Stores tokens in encrypted session; returns HttpOnly cookie"
             identity -> bp.broker "Publishes LoginSucceeded"

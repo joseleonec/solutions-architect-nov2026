@@ -203,3 +203,15 @@ Onboarding is low volume compared with transactions: even 50,000 new digital cus
 - [x] Onboarding threats and controls
 - [ ] Draw `05-Dynamic-Onboarding` in Structurizr (Step 17)
 - [ ] **Your review:** check the iBeta confirmation letters of the shortlisted vendors and the technical integration method of SNIC (the gob.ec page doesn't say it's a web service)
+
+---
+
+## Update (8 Nov 2026): onboarding components (C4 level 3)
+
+New component view `03-Components-Onboarding`, in three layers:
+
+- **API layer:** Onboarding API (safe status messages only), **Device Attestation Verifier** (Play Integrity / App Attest checked server-side before any capture), **Vendor Webhook Endpoint** (HMAC signature, timestamp, replay protection; the result is never taken from the app), **Manual Review API** (staff role, **four-eyes rule**).
+- **Business layer:** Onboarding Orchestrator (state machine `STARTED → CAPTURED → VERIFIED → SCREENED → APPROVED | UNDER_REVIEW | REJECTED → ACTIVE`, consent recorded) and **Decision Engine** (vendor scores + registry match + screening → approve / review / reject; rejections always reviewed by a person).
+- **Integration and data layer:** eKYC Vendor Adapter (ACL, polls if a webhook is lost), Registro Civil Adapter, Screening Client (PEP, sanctions, UAFE lists, duplicate identities), Account Opening Client, **IdP Provisioning Client** (creates the user with `kyc_level=verified`), Case Repository & Outbox.
+
+Staff use a new **Back-office Portal** (staff SSO + FIDO2 MFA) for manual review.

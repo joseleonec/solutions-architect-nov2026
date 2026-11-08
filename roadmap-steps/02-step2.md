@@ -189,3 +189,17 @@
 - [ ] **Your review:** check the current SB codified text (post-2023) for article numbers
 - [ ] **Your review:** confirm AML record retention (10 years) in the official law text
 - [ ] Apply the section 5 updates to [00-step0.md](00-step0.md)
+
+---
+
+## Update (8 Nov 2026): additions after cross-review
+
+| Ref | Norm | What it adds | Design response |
+| --- | --- | --- | --- |
+| R9 | **Ley Orgánica para el Fortalecimiento de la Ciberseguridad** (Registro Oficial No. 290, Fifth Supplement, 22 May 2026) | Cybersecurity frameworks, incident response and reporting; enables controlled ethical hacking for critical digital infrastructure; reforms LOPDP art. 43 (breach notification adds a third recipient); national minimum cybersecurity standards and an incident regulation to follow | Incident runbooks with regulator notification, SIEM / SOC, annual pentest and red-team exercises (Step 12) |
+| R10 | **JPRF codification** (Junta de Política y Regulación Financiera y Monetaria): technology and third-party risk provisions — *exact articles to confirm* | Supplier due diligence, audit rights, exit plan, third-party risk register | Vendor due diligence (SOC 2, ISO 27001), audit clauses, **exit plan and portable design** (Kubernetes, Kafka, OpenTelemetry, Terraform), third-party risk register |
+| — | LOPDP governance | **Data Protection Officer (DPO)** and records of processing | DPO named in the governance section; processing register covers cloud, eKYC, SMS and email processors |
+
+**International data transfer (position).** The SPDP's 2026 norm on national and international transfers treats a cloud provider acting as **processor** as *not* an international transfer (row 88 above). An earlier analysis treated foreign hosting as an international transfer requiring consent, contract clauses and registration. **Position taken:** follow the 2026 norm, but apply the stricter safeguards anyway — a data processing agreement with standard-contract-style clauses, bank-managed encryption keys (KMS / CloudHSM), entry in the processing register, and a privacy notice that discloses hosting abroad. **Fallback** if Legal requires it: a hybrid option keeping the most sensitive data (biometric evidence, KYC documents) in Ecuador. Owner: Legal / DPO.
+
+Sources: [El Diario: law in force (22 May 2026)](https://www.eldiario.ec/ecuador/en-vigencia-la-ley-organica-para-el-fortalecimiento-de-la-ciberseguridad-22052026/), [NMS Law: cybersecurity law in force](https://nmslaw.com.ec/blog/2026/06/01/ecuador-ley-organica-fortalecimiento-ciberseguridad/), [LEXIS: Registro Oficial](https://www.lexis.com.ec/noticias/registro-oficial-del-dia-ley-organica-para-el-fortalecimiento-de-la-ciberseguridad).
