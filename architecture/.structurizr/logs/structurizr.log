@@ -1,0 +1,31 @@
+2026-11-08T17:26:52.509Z  INFO 1 --- [main] com.structurizr.server.Local             : ***********************************************************************************
+2026-11-08T17:26:52.535Z  INFO 1 --- [main] com.structurizr.server.Local             :   _____ _                   _              _          
+2026-11-08T17:26:52.537Z  INFO 1 --- [main] com.structurizr.server.Local             :  / ____| |                 | |            (_)         
+2026-11-08T17:26:52.538Z  INFO 1 --- [main] com.structurizr.server.Local             : | (___ | |_ _ __ _   _  ___| |_ _   _ _ __ _ _____ __ 
+2026-11-08T17:26:52.548Z  INFO 1 --- [main] com.structurizr.server.Local             :  \___ \| __| '__| | | |/ __| __| | | | '__| |_  / '__|
+2026-11-08T17:26:52.549Z  INFO 1 --- [main] com.structurizr.server.Local             :  ____) | |_| |  | |_| | (__| |_| |_| | |  | |/ /| |   
+2026-11-08T17:26:52.550Z  INFO 1 --- [main] com.structurizr.server.Local             : |_____/ \__|_|   \__,_|\___|\__|\__,_|_|  |_/___|_|   
+2026-11-08T17:26:52.551Z  INFO 1 --- [main] com.structurizr.server.Local             :                                                       
+2026-11-08T17:26:52.556Z  INFO 1 --- [main] com.structurizr.server.Local             : Local v2026.10.26
+2026-11-08T17:26:52.561Z  INFO 1 --- [main] com.structurizr.server.Local             : ***********************************************************************************
+2026-11-08T17:26:52.564Z  INFO 1 --- [main] com.structurizr.server.Local             :  - structurizr.authentication: none
+2026-11-08T17:26:52.565Z  INFO 1 --- [main] com.structurizr.server.Local             :  - structurizr.autorefreshinterval: 0
+2026-11-08T17:26:52.568Z  INFO 1 --- [main] com.structurizr.server.Local             :  - structurizr.autosaveinterval: 5000
+2026-11-08T17:26:52.570Z  INFO 1 --- [main] com.structurizr.server.Local             :  - structurizr.cache: none
+2026-11-08T17:26:52.574Z  INFO 1 --- [main] com.structurizr.server.Local             :  - structurizr.data: file
+2026-11-08T17:26:52.576Z  INFO 1 --- [main] com.structurizr.server.Local             :  - structurizr.datadirectory: /usr/local/structurizr
+2026-11-08T17:26:52.577Z  INFO 1 --- [main] com.structurizr.server.Local             :  - structurizr.debug: false
+2026-11-08T17:26:52.579Z  INFO 1 --- [main] com.structurizr.server.Local             :  - structurizr.editable: true
+2026-11-08T17:26:52.580Z  INFO 1 --- [main] com.structurizr.server.Local             :  - structurizr.logging.filename: /usr/local/structurizr/.structurizr/logs/structurizr.log
+2026-11-08T17:26:52.581Z  INFO 1 --- [main] com.structurizr.server.Local             :  - structurizr.network.timeout: 60000
+2026-11-08T17:26:52.583Z  INFO 1 --- [main] com.structurizr.server.Local             :  - structurizr.network.urls.allowed: .*
+2026-11-08T17:26:52.584Z  INFO 1 --- [main] com.structurizr.server.Local             :  - structurizr.search: lucene
+2026-11-08T17:26:52.586Z  INFO 1 --- [main] com.structurizr.server.Local             :  - structurizr.themes: /usr/local/structurizr/themes/
+2026-11-08T17:26:52.588Z  INFO 1 --- [main] com.structurizr.server.Local             :  - structurizr.workspace.maxsize: 1MB
+2026-11-08T17:26:52.589Z  INFO 1 --- [main] com.structurizr.server.Local             :  - structurizr.workspace.threads: 10
+2026-11-08T17:26:52.591Z  INFO 1 --- [main] com.structurizr.server.Local             :  - structurizr.workspaces: 1
+2026-11-08T17:26:52.593Z  INFO 1 --- [main] com.structurizr.server.Local             : ***********************************************************************************
+2026-11-08T17:26:52.594Z  INFO 1 --- [main] com.structurizr.server.Local             : Themes:
+2026-11-08T17:26:52.597Z  INFO 1 --- [main] com.structurizr.server.Local             : ***********************************************************************************
+2026-11-08T17:37:08.109Z  WARN 1 --- [http-nio-8080-exec-6] .w.s.m.s.DefaultHandlerExceptionResolver : Resolved [org.springframework.web.method.annotation.MethodArgumentTypeMismatchException: Method parameter 'workspaceId': Failed to convert value of type 'java.lang.String' to required type 'long'; For input string: "diagrams"]
+2026-11-08T17:37:12.962Z  WARN 1 --- [http-nio-8080-exec-3] .w.s.m.s.DefaultHandlerExceptionResolver : Resolved [org.springframework.web.method.annotation.MethodArgumentTypeMismatchException: Method parameter 'workspaceId': Failed to convert value of type 'java.lang.String' to required type 'long'; For input string: "diagrams"]

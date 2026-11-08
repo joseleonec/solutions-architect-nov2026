@@ -171,8 +171,8 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
         customer -> bp.spa "Uses" "HTTPS"
         customer -> bp.mobile "Uses"
         prospect -> bp.mobile "Opens an account with"
-        bp.spa -> bp.edge "Calls the Web BFF through" "HTTPS, HttpOnly session cookie"
-        bp.mobile -> bp.edge "Calls APIs through" "HTTPS, pinned TLS, DPoP-bound token"
+        bp.spa -> bp.edge "Calls the Web BFF through" "HTTPS, HttpOnly session cookie" "Infra"
+        bp.mobile -> bp.edge "Calls APIs through" "HTTPS, pinned TLS, DPoP-bound token" "Infra"
         bp.mobile -> identity "Obtains and refreshes tokens from" "OIDC: PAR + PKCE + DPoP (system browser)"
         bp.mobile -> biometrics "Captures cédula, selfie and liveness with" "Vendor SDK / HTTPS"
         push -> bp.mobile "Delivers push notifications to"
@@ -366,36 +366,36 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
 
             device = deploymentNode "Customer device" "" "iOS / Android / browser" {
                 phone = deploymentNode "Mobile phone" "" "iOS / Android" {
-                    containerInstance bp.mobile primary,standby
+                    mobileInst = containerInstance bp.mobile primary,standby
                 }
                 browser = deploymentNode "Web browser" "" "Chrome, Safari, Edge, Firefox" {
-                    containerInstance bp.spa primary,standby
+                    spaInst = containerInstance bp.spa primary,standby
                 }
             }
 
             aws = deploymentNode "Amazon Web Services" "" "AWS" {
                 global = deploymentNode "Global edge" "" "CloudFront PoPs, Route 53, ARC" {
                     route53 = infrastructureNode "Route 53 + ARC" "DNS, routing controls, Region switch plan for failover." "Amazon Route 53 / Application Recovery Controller"
-                    containerInstance bp.edge primary,standby
+                    edgeInst = containerInstance bp.edge primary,standby
                 }
 
                 use1 = deploymentNode "us-east-1 (primary)" "Primary region, 3 availability zones." "AWS Region" {
                     nlb1 = infrastructureNode "Network Load Balancer" "Spread over 3 AZs." "Elastic Load Balancing"
-                    eks1 = deploymentNode "EKS cluster" "Nodes in 3 AZs, Karpenter, Istio ambient mTLS, Argo CD." "Amazon EKS (Graviton)" {
-                        deploymentNode "platform namespace" "" "Kubernetes" {
-                            containerInstance bp.gateway primary
+                    eks1 = deploymentNode "EKS cluster" "Nodes in 3 AZs, Karpenter, Istio ambient mTLS, Argo CD. Namespaces: platform (Kong, CDC), channels (Web/Mobile BFF), payments (Transfer, Beneficiary & Limits, Risk, Interbank, Core Adapter), customer (Accounts, Movements, Profile, Device, Onboarding, Customer Info Adapter), support (Notification, Audit, AML)." "Amazon EKS (Graviton)" {
+                        platform = deploymentNode "platform namespace" "" "Kubernetes" {
+                            gateway1 = containerInstance bp.gateway primary
                             containerInstance bp.cdc primary
                         }
                         deploymentNode "channels namespace" "" "Kubernetes" {
                             containerInstance bp.webBff primary
                             containerInstance bp.mobileBff primary
                         }
-                        deploymentNode "payments namespace" "" "Kubernetes" {
+                        payments = deploymentNode "payments namespace" "" "Kubernetes" {
                             containerInstance bp.transfer primary
                             containerInstance bp.beneficiary primary
                             containerInstance bp.risk primary
                             containerInstance bp.interbank primary
-                            containerInstance bp.coreAdapter primary
+                            coreAdapter1 = containerInstance bp.coreAdapter primary
                         }
                         deploymentNode "customer namespace" "" "Kubernetes" {
                             containerInstance bp.accounts primary
@@ -411,47 +411,47 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
                             containerInstance bp.aml primary
                         }
                     }
-                    aurora1 = deploymentNode "Aurora PostgreSQL (writer + 2 readers, 3 AZs)" "Global Database primary." "Amazon Aurora" {
-                        containerInstance bp.transferDb primary
+                    aurora1 = deploymentNode "Aurora PostgreSQL (writer + 2 readers, 3 AZs)" "Global Database primary. 5 clusters: Transfer, Beneficiary & Limits, Onboarding, Profile, Interbank." "Amazon Aurora" {
+                        transferDb1 = containerInstance bp.transferDb primary
                         containerInstance bp.beneficiaryDb primary
                         containerInstance bp.onboardingDb primary
                         containerInstance bp.profileDb primary
                         containerInstance bp.interbankDb primary
                     }
-                    dynamo1 = deploymentNode "DynamoDB" "Global tables (active replica)." "Amazon DynamoDB" {
+                    dynamo1 = deploymentNode "DynamoDB" "Global tables: Movements read model, Device, Notification log, Audit hot index." "Amazon DynamoDB" {
                         containerInstance bp.deviceDb primary
-                        containerInstance bp.movementsDb primary
+                        movementsDb1 = containerInstance bp.movementsDb primary
                         containerInstance bp.notificationDb primary
                         containerInstance bp.auditIndex primary
                     }
                     redis1 = deploymentNode "ElastiCache cluster (3 shards, replicas in other AZs)" "Global Datastore primary." "Amazon ElastiCache (Valkey)" {
-                        containerInstance bp.cache primary
+                        cache1 = containerInstance bp.cache primary
                     }
                     msk1 = deploymentNode "MSK cluster (3 AZs, RF 3)" "" "Amazon MSK" {
-                        containerInstance bp.broker primary
+                        broker1 = containerInstance bp.broker primary
                     }
                     s3a = deploymentNode "Log archive account" "S3 Object Lock, compliance mode." "Amazon S3" {
-                        containerInstance bp.auditArchive primary
+                        archive1 = containerInstance bp.auditArchive primary
                     }
                 }
 
                 use2 = deploymentNode "us-east-2 (warm standby)" "DR region: data replicated, T1 compute at ~25-30%." "AWS Region" "Standby" {
                     nlb2 = infrastructureNode "Network Load Balancer" "Ready for failover." "Elastic Load Balancing" "Standby"
-                    eks2 = deploymentNode "EKS cluster (scaled down)" "Same manifests via GitOps; scaled up by the Region switch plan." "Amazon EKS (Graviton)" "Standby" {
-                        deploymentNode "platform namespace" "" "Kubernetes" "Standby" {
-                            containerInstance bp.gateway standby
+                    eks2 = deploymentNode "EKS cluster (scaled down)" "Same namespaces and services as the primary via GitOps, T1 at ~25-30% capacity; scaled up by the Region switch plan." "Amazon EKS (Graviton)" "Standby" {
+                        platform = deploymentNode "platform namespace" "" "Kubernetes" "Standby" {
+                            gateway2 = containerInstance bp.gateway standby
                             containerInstance bp.cdc standby
                         }
                         deploymentNode "channels namespace" "" "Kubernetes" "Standby" {
                             containerInstance bp.webBff standby
                             containerInstance bp.mobileBff standby
                         }
-                        deploymentNode "payments namespace" "" "Kubernetes" "Standby" {
+                        payments = deploymentNode "payments namespace" "" "Kubernetes" "Standby" {
                             containerInstance bp.transfer standby
                             containerInstance bp.beneficiary standby
                             containerInstance bp.risk standby
                             containerInstance bp.interbank standby
-                            containerInstance bp.coreAdapter standby
+                            coreAdapter2 = containerInstance bp.coreAdapter standby
                         }
                         deploymentNode "customer namespace" "" "Kubernetes" "Standby" {
                             containerInstance bp.accounts standby
@@ -467,50 +467,60 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
                             containerInstance bp.aml standby
                         }
                     }
-                    aurora2 = deploymentNode "Aurora PostgreSQL (secondary, read-only)" "Global Database secondary." "Amazon Aurora" "Standby" {
-                        containerInstance bp.transferDb standby
+                    aurora2 = deploymentNode "Aurora PostgreSQL (secondary, read-only)" "Global Database secondary of the 5 clusters." "Amazon Aurora" "Standby" {
+                        transferDb2 = containerInstance bp.transferDb standby
                         containerInstance bp.beneficiaryDb standby
                         containerInstance bp.onboardingDb standby
                         containerInstance bp.profileDb standby
                         containerInstance bp.interbankDb standby
                     }
-                    dynamo2 = deploymentNode "DynamoDB" "Global tables replica." "Amazon DynamoDB" "Standby" {
+                    dynamo2 = deploymentNode "DynamoDB" "Global tables replicas of the 4 tables." "Amazon DynamoDB" "Standby" {
                         containerInstance bp.deviceDb standby
-                        containerInstance bp.movementsDb standby
+                        movementsDb2 = containerInstance bp.movementsDb standby
                         containerInstance bp.notificationDb standby
                         containerInstance bp.auditIndex standby
                     }
                     redis2 = deploymentNode "ElastiCache (Global Datastore secondary)" "" "Amazon ElastiCache (Valkey)" "Standby" {
-                        containerInstance bp.cache standby
+                        cache2 = containerInstance bp.cache standby
                     }
                     msk2 = deploymentNode "MSK cluster" "Topics replicated by MSK Replicator." "Amazon MSK" "Standby" {
-                        containerInstance bp.broker standby
+                        broker2 = containerInstance bp.broker standby
                     }
                     s3b = deploymentNode "Log archive replica" "Cross-Region Replication with Object Lock." "Amazon S3" "Standby" {
-                        containerInstance bp.auditArchive standby
+                        archive2 = containerInstance bp.auditArchive standby
                     }
                 }
 
+                replication = infrastructureNode "Cross-region replication" "Managed, asynchronous replication us-east-1 to us-east-2 (RPO < 1 min)." "AWS managed replication"
                 dx = infrastructureNode "Direct Connect gateway" "2 Direct Connect links (different providers and locations) + Site-to-Site VPN backup; reaches both regions." "AWS Direct Connect"
             }
 
             onprem = deploymentNode "BP data centres (Ecuador)" "On-premises, with the bank's own DR site." "On-premises" {
-                softwareSystemInstance core primary,standby
-                softwareSystemInstance customerInfo primary,standby
-                softwareSystemInstance identity primary,standby
+                coreInst = softwareSystemInstance core primary,standby
+                customerInfoInst = softwareSystemInstance customerInfo primary,standby
+                identityInst = softwareSystemInstance identity primary,standby
             }
 
-            // Replication and connectivity
-            aws.use1.aurora1 -> aws.use2.aurora2 "Replicates to (typically < 1 s)" "Aurora Global Database"
-            aws.use1.dynamo1 -> aws.use2.dynamo2 "Replicates to" "DynamoDB global tables"
-            aws.use1.redis1 -> aws.use2.redis2 "Replicates to" "ElastiCache Global Datastore"
-            aws.use1.msk1 -> aws.use2.msk2 "Replicates topics to" "MSK Replicator"
-            aws.use1.s3a -> aws.use2.s3b "Replicates to" "S3 Cross-Region Replication"
-            aws.global.route53 -> aws.use1.nlb1 "Routes traffic to (active)"
-            aws.global.route53 -> aws.use2.nlb2 "Routes traffic to on failover"
-            aws.use1.eks1 -> aws.dx "Reaches on-premises through"
-            aws.use2.eks2 -> aws.dx "Reaches on-premises through"
-            aws.dx -> onprem "Connects to" "Direct Connect (MACsec / IPsec)"
+            // Replication and connectivity (between leaf elements so autolayout works)
+            aws.use1.aurora1.transferDb1 -> aws.replication "Replicates all Aurora clusters through" "Aurora Global Database (< 1 s)" "Infra"
+            aws.use1.dynamo1.movementsDb1 -> aws.replication "Replicates all tables through" "DynamoDB global tables" "Infra"
+            aws.use1.redis1.cache1 -> aws.replication "Replicates critical keys through" "ElastiCache Global Datastore" "Infra"
+            aws.use1.msk1.broker1 -> aws.replication "Replicates topics through" "MSK Replicator" "Infra"
+            aws.use1.s3a.archive1 -> aws.replication "Replicates through" "S3 Cross-Region Replication" "Infra"
+            aws.replication -> aws.use2.aurora2.transferDb2 "Updates" "Aurora Global Database" "Infra"
+            aws.replication -> aws.use2.dynamo2.movementsDb2 "Updates" "DynamoDB global tables" "Infra"
+            aws.replication -> aws.use2.redis2.cache2 "Updates" "Global Datastore" "Infra"
+            aws.replication -> aws.use2.msk2.broker2 "Updates" "MSK Replicator" "Infra"
+            aws.replication -> aws.use2.s3b.archive2 "Updates" "S3 CRR" "Infra"
+            aws.global.edgeInst -> aws.use1.nlb1 "Forwards API traffic to (active)" "HTTPS" "Infra"
+            aws.global.edgeInst -> aws.use2.nlb2 "Forwards API traffic to on failover" "HTTPS" "Infra"
+            aws.use1.nlb1 -> aws.use1.eks1.platform.gateway1 "Forwards to" "TLS" "Infra"
+            aws.use2.nlb2 -> aws.use2.eks2.platform.gateway2 "Forwards to" "TLS" "Infra"
+            aws.global.route53 -> aws.use1.nlb1 "Routes traffic to (active)" "DNS / ARC routing control" "Infra"
+            aws.global.route53 -> aws.use2.nlb2 "Routes traffic to on failover" "DNS / ARC routing control" "Infra"
+            aws.use1.eks1.payments.coreAdapter1 -> aws.dx "Reaches the Core through" "REST / SOAP" "Infra"
+            aws.use2.eks2.payments.coreAdapter2 -> aws.dx "Reaches the Core through" "REST / SOAP" "Infra"
+            aws.dx -> onprem.coreInst "Connects to" "Direct Connect (MACsec / IPsec)" "Infra"
         }
     }
 
@@ -655,9 +665,17 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
         }
 
         // ---------- Deployment ----------
-        deployment bp prod "04-Deployment-Production" "Production on AWS: us-east-1 primary (3 AZs), us-east-2 warm standby, hybrid link to the on-premises Core (Steps 3 and 13)." {
-            include *
-            autolayout lr 300 150
+        deployment bp prod "04-Deployment-Production" "Production on AWS: us-east-1 primary (3 AZs), us-east-2 warm standby, hybrid link to the on-premises Core (Steps 3 and 13). One representative element per platform service; node descriptions list everything deployed there. Service-to-service calls are in the container views." {
+            include prod.device.phone.mobileInst prod.device.browser.spaInst
+            include prod.aws.global.edgeInst prod.aws.global.route53
+            include prod.aws.use1.nlb1 prod.aws.use1.eks1.platform.gateway1 prod.aws.use1.eks1.payments.coreAdapter1
+            include prod.aws.use1.aurora1.transferDb1 prod.aws.use1.dynamo1.movementsDb1 prod.aws.use1.redis1.cache1 prod.aws.use1.msk1.broker1 prod.aws.use1.s3a.archive1
+            include prod.aws.use2.nlb2 prod.aws.use2.eks2.platform.gateway2 prod.aws.use2.eks2.payments.coreAdapter2
+            include prod.aws.use2.aurora2.transferDb2 prod.aws.use2.dynamo2.movementsDb2 prod.aws.use2.redis2.cache2 prod.aws.use2.msk2.broker2 prod.aws.use2.s3b.archive2
+            include prod.aws.replication prod.aws.dx prod.onprem.coreInst prod.onprem.customerInfoInst prod.onprem.identityInst
+            exclude "relationship.tag==Relationship"
+            include "relationship.tag==Infra"
+            autolayout lr 200 100
         }
 
         styles {
