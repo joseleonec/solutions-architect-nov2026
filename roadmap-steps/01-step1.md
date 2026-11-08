@@ -103,7 +103,7 @@ architecture/
 
 ## What's already in the model
 
-[architecture/workspace.dsl](architecture/workspace.dsl) contains only what the statement fixes:
+[architecture/workspace.dsl](../architecture/workspace.dsl) contains only what the statement fixes:
 
 - **People:** Customer, New customer.
 - **System in scope:** BP Internet Banking, with no containers yet.

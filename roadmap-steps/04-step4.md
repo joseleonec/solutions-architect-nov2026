@@ -165,7 +165,7 @@ The 3 base services from the statement map to: **basic data → Customer Profile
 
 ## 8. Impact on the C4 model
 
-- The **Audit Store** is modelled in [workspace.dsl](architecture/workspace.dsl) as a separate internal system. With this decomposition, **Audit becomes a service inside BP Internet Banking**, with its own database container. Move it into the `bp` system when the containers are added.
+- The **Audit Store** is modelled in [workspace.dsl](../architecture/workspace.dsl) as a separate internal system. With this decomposition, **Audit becomes a service inside BP Internet Banking**, with its own database container. Move it into the `bp` system when the containers are added.
 - The container diagram (Step 17) will show: SPA, mobile app, the 2 BFFs, the API Gateway, the 14 services above, their data stores, and the message broker.
 
 ---

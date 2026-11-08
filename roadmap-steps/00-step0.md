@@ -2,7 +2,7 @@
 
 Goal: before designing anything, know exactly **what** must be built, **how well** it must work, what is **fixed** by the statement, and what we **assume**. Every later decision (ADR) should trace back to an item here.
 
-> Source: [assessment-statement.md](assessment-statement.md). Items marked *(added)* are not in the statement word for word. They are implied by it or needed to make the system work.
+> Source: [assessment-statement.md](../assessment-statement.md). Items marked *(added)* are not in the statement word for word. They are implied by it or needed to make the system work.
 
 ---
 
