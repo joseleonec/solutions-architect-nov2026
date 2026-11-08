@@ -78,7 +78,7 @@ BP (assumed to be **Banco Pichincha**, the largest private bank in Ecuador, ~6.5
 
 | Area | Decision |
 | --- | --- |
-| Cloud | **AWS**, primary **us-east-1** (lowest measured latency from Ecuador, ~90 ms), **warm standby in us-east-2**; hybrid link to the on-premises Core with 2 Direct Connect links + VPN |
+| Cloud | **AWS**, primary **us-east-1** (lowest AWS latency measured from Ecuador, ~90 ms), **warm standby in us-east-2**; hybrid link to the on-premises Core with 2 Direct Connect links + VPN |
 | Architecture style | **Microservices by bounded context** (14 domain services, coarse-grained), BFF per channel, event-driven support services |
 | Front-end | **Angular** SPA (no tokens in the browser, BFF token handler) and **Flutter** mobile app (compared with React Native) |
 | Authentication | OAuth 2.0 **Authorization Code + PKCE + PAR**, **FAPI 2.0** profile, **DPoP** sender-constrained tokens; biometric login through a **device-bound key** in the Secure Enclave / StrongBox; **step-up with dynamic linking** for transfers to new beneficiaries |
@@ -88,7 +88,7 @@ BP (assumed to be **Banco Pichincha**, the largest private bank in Ecuador, ~6.5
 | Audit | Outbox + Kafka → Audit Service → **S3 Object Lock (WORM)** + hot index, **hash chain + signed digests** |
 | Notifications | **SMS + email simultaneously** (regulation), 2 SMS providers with automatic failover, push as complement |
 | Resilience | Multi-AZ, warm standby DR (**RTO 15 min / RPO 1 min** for critical journeys), auto-healing, chaos and DR drills |
-| Cost | AWS ≈ **USD 111–116 k / month** at full scale (unit prices checked against the AWS Price List; ≈ USD 0.02 per active user); **SMS is the dominant running cost** |
+| Cost | AWS ≈ **USD 117–122 k / month** at full scale (unit prices checked against the AWS Price List; ≈ USD 0.02 per active user); **SMS is the dominant running cost** |
 | Delivery | **Four stages** (pretotype → read-only MVP → transactional → enterprise scale) with go/no-go gates, a minimum resilience line per stage and an explicit technical-debt register |
 
 All decisions are recorded as **22 ADRs** (section 18), each with the alternatives evaluated and at least two justifications. The C4 model is a single **Structurizr DSL** workspace in the repository ([architecture/workspace.dsl](../architecture/workspace.dsl)), so every diagram is generated from one consistent model.
@@ -155,12 +155,16 @@ All decisions are recorded as **22 ADRs** (section 18), each with the alternativ
 | Ref | Norm | Authority | What it drives |
 | --- | --- | --- | --- |
 | R1 | **Operational risk management norm** (SB, chapter replaced in 2023, reformed by SB-2024-02855) | Superintendencia de Bancos | Electronic-channel security, cloud and outsourcing, continuity, incident reporting |
+| R2 | **Código Orgánico Monetario y Financiero (COMF)** | Asamblea Nacional / JPRF | Framework law: banking secrecy (*sigilo bancario*), record keeping, powers of the SB and JPRF |
 | R3 | **Ley Orgánica de Protección de Datos Personales (LOPDP)** | SPDP | Personal data, processors, breaches |
 | R4 / R5 | SPDP-SPD-2026-0039-R (**biometric data**) and SPDP-SPD-2026-0040-R (**breach notification**) | SPDP | Facial recognition, incident deadlines |
+| R6 | **SPDP norm on national and international data transfers** (2026) | SPDP | Hosting and processing data outside Ecuador (cloud regions) |
 | R7 | **AML law** (2024) and its 2026 regulation | UAFE | KYC at onboarding, transaction monitoring, record retention |
 | R8 | **BCE SPI technical norm** and **real-time payments messaging standard** (Res. BCE-GG-007-2026) | Banco Central del Ecuador | Interbank payments in ISO 20022 |
-| R9 | **Ley Orgánica para el Fortalecimiento de la Ciberseguridad** (Registro Oficial No. 290, 22 May 2026) | Several authorities | Cybersecurity frameworks, incident response and reporting, controlled ethical hacking, reform of LOPDP art. 43 (breach notification) |
-| R10 | **JPRF codification** – technology and third-party risk provisions (articles to confirm) | Junta de Política y Regulación Financiera y Monetaria | Supplier due diligence, audit rights, exit plan, third-party risk register |
+| R9 | **Ley de Comercio Electrónico, Firmas Electrónicas y Mensajes de Datos** | Asamblea Nacional | Legal validity of electronic transactions, data messages and electronic consent |
+| R10 | **Financial consumer protection norms** (e.g. SB-2023-2208, financial users) | Superintendencia de Bancos | Customer rights, complaints and claims, transparency (current text to confirm) |
+| R11 | **Ley Orgánica para el Fortalecimiento de la Ciberseguridad** (Registro Oficial No. 290, 22 May 2026) | Several authorities | Cybersecurity frameworks, incident response and reporting, controlled ethical hacking, reform of LOPDP art. 43 (breach notification) |
+| R12 | **JPRF codification** – technology and third-party risk provisions (articles to confirm) | Junta de Política y Regulación Financiera y Monetaria | Supplier due diligence, audit rights, exit plan, third-party risk register |
 | — | International references: ISO 27001/27017/27018, ISO 22301, COBIT 2019, OWASP ASVS/MASVS, FAPI 2.0, NIST SP 800-207 | — | Security, continuity, governance |
 
 **Requirements that shape the design**
@@ -184,8 +188,11 @@ All decisions are recorded as **22 ADRs** (section 18), each with the alternativ
 | Cybersecurity law: incident response and reporting, penetration testing | SIEM / SOC, runbooks with regulator notification, annual pentest and red team | 12, 14 |
 | Third-party and cloud risk (JPRF / SB) | Vendor due diligence (SOC 2, ISO 27001), audit clauses, **exit plan and portable design** (Kubernetes, Kafka, OpenTelemetry, Terraform), third-party risk register | 3, 12 |
 | LOPDP governance | **Data Protection Officer**, records of processing for cloud, eKYC, SMS and email processors | 3 |
+| Banking secrecy (COMF) | Object-level authorization, staff access to customer data logged and justified by case number, tokenization in events and logs | 6, 10, 12 |
+| Electronic consent and transactions valid as evidence (e-commerce law) | Consent and transaction confirmations recorded with timestamp, text version, device and channel in the WORM audit store | 7, 10 |
+| Customer complaints and claims (consumer protection) | Audit trail queryable per customer for claims, legal hold, transfer status visible to the customer | 8, 10 |
 
-**Hosting abroad.** The SPDP's 2026 norm on data transfers treats a cloud provider acting as **processor** as not an international transfer. The design follows it but applies the stricter safeguards anyway: a processing agreement with contract-clause protections, **bank-managed keys** (KMS / CloudHSM), an entry in the processing register and a privacy notice disclosing hosting abroad. If Legal requires more, the fallback is a **hybrid option** that keeps biometric evidence and KYC documents in Ecuador.
+**Hosting abroad.** The SPDP's 2026 norm on data transfers (R6) treats a cloud provider acting as **processor** as not an international transfer. The design follows it but applies the stricter safeguards anyway: a processing agreement with contract-clause protections, **bank-managed keys** (KMS / CloudHSM), an entry in the processing register and a privacy notice disclosing hosting abroad. If Legal requires more, the fallback is a **hybrid option** that keeps biometric evidence and KYC documents in Ecuador.
 
 > Article numbers of the SB norm should be checked against the current consolidated text (the chapter was replaced in 2023); the 10-year AML retention should be confirmed in the UAFE regulation.
 
@@ -274,7 +281,7 @@ Six containers are opened, chosen because they hold the patterns the statement a
 
 <div class="figure"><p class="caption">Figure 4.5 – Production on AWS: us-east-1 primary (3 AZs), us-east-2 warm standby, hybrid link to the Core</p><img src="../architecture/.structurizr/1/images/04-Deployment-Production.svg" alt="Deployment"/></div>
 
-**Region choice and latency (ADR-002, ADR-003).** No AWS or Azure region exists in Ecuador, so the platform is hosted abroad under the SB cloud conditions. Round trips measured from Cuenca (8 Nov 2026): **us-east-1 ~90 ms**, us-east-2 ~103 ms, mx-central-1 ~118 ms, sa-east-1 ~157 ms (Ecuador's submarine cables route through Miami). With HTTP/2 connection reuse, edge TLS termination and cache hits, a frequent client's dashboard stays well under 500 ms. Calls to the on-premises Core cross ~90 ms, which is why reads are served from caches and read models.
+**Region choice and latency (ADR-002, ADR-003).** No AWS or Azure region exists in Ecuador, so the platform is hosted abroad under the SB cloud conditions. Round trips measured from Cuenca (8 Nov 2026): **us-east-1 ~90 ms**, us-east-2 ~103 ms, mx-central-1 ~118 ms, sa-east-1 ~157 ms (Ecuador's submarine cables route through Miami). Azure was not measured: its US East regions are in the same metros as AWS's, so similar numbers are expected; **Azure Chile Central** is the one unknown and should be measured before the decision is final (section 19). With HTTP/2 connection reuse, edge TLS termination and cache hits, a frequent client's dashboard stays well under 500 ms. Calls to the on-premises Core cross ~90 ms, which is why reads are served from caches and read models.
 
 One representative element per platform service is shown; node descriptions list everything deployed there. EKS namespaces: **platform** (Kong, CDC), **channels** (BFFs), **payments** (Transfer, Beneficiary & Limits, Risk, Interbank, Core Adapter), **customer** (Accounts, Movements, Profile, Device, Onboarding, Customer Info Adapter), **support** (Notification, Audit, AML).
 
@@ -517,7 +524,7 @@ Principles: **Zero Trust** (NIST SP 800-207), defence in depth, least privilege,
 
 ## 16. Cost management
 
-Monthly estimate at full scale. **Unit prices were checked on 8 Nov 2026 against the public AWS Price List** (us-east-1 on-demand; CloudFront South America); quantities are the sizing assumptions. Status: Verified = unit price from the Price List; Partial = unit price verified, part of the volume estimated; Estimated = needs a quote. Line-by-line detail and how to reproduce each query: `roadmap-steps/16b-cost-validation.md`.
+Monthly estimate at full scale. **Unit prices were checked on 8 Nov 2026 against the public AWS Price List** (us-east-1 on-demand; CloudFront South America); quantities are the sizing assumptions. **Notification volume:** ~225 M notices a month, each sent by SMS **and** email: ~164 M monetary transactions plus ~60 M login notices (about one per daily active user per day; the SB requires a notice on every e-banking login, and the same two channels are used as for money movements). Status: Verified = unit price from the Price List; Partial = unit price verified, part of the volume estimated; Estimated = needs a quote. Line-by-line detail and how to reproduce each query: `roadmap-steps/16b-cost-validation.md`.
 
 | Area | Key unit prices (Price List) | USD / month | Status |
 | --- | --- | --- | --- |
@@ -531,14 +538,14 @@ Monthly estimate at full scale. **Unit prices were checked on 8 Nov 2026 against
 | Security: CloudHSM (4 HSMs) + GuardDuty, Security Hub, Inspector, Macie, Security Lake, KMS | 1.60 / HSM-h | ≈ 9,700 | Verified / Estimated |
 | Observability | Usage-based | ≈ 10,000 | Estimated |
 | Storage and backup | Usage-based | ≈ 1,500 | Estimated |
-| Email: Amazon SES, ~164 M | 0.10 / 1,000 | ≈ 16,400 | Verified |
-| **Production** | | **≈ 91,000** (> 60% from verified unit prices) | |
+| Email: Amazon SES, ~225 M (transactions + logins) | 0.10 / 1,000 | ≈ 22,500 | Verified |
+| **Production** | | **≈ 97,000** (> 60% from verified unit prices) | |
 | Non-production (scheduled shutdown) | | ≈ 20,000–25,000 | Estimated |
-| **AWS total** | | **≈ 111,000–116,000 (≈ USD 1.35 M / year)** | |
+| **AWS total** | | **≈ 117,000–122,000 (≈ USD 1.43 M / year)** | |
 
 Carrier circuits from Ecuador to the Direct Connect location are not in the AWS bill and need a quote. The biggest single lever found while checking prices: keeping the **audit hot index in one region** (rebuilt from the S3 archive after a failover) and on the Standard-IA table class saves ≈ USD 3 k a month.
 
-**Outside AWS:** SMS ≈ **USD 0.8–3.3 M / month** depending on the negotiated price (7–30× the whole AWS bill; Registro Civil USD 0.30 per check is verified on gob.ec), Registro Civil ~USD 15 k, eKYC vendor and licences by quote. **DR cost:** warm standby ≈ USD 10–12 k / month vs ≈ USD 50–60 k for active/active.
+**Outside AWS:** SMS ≈ **USD 1.1–4.5 M / month** for ~225 M messages at USD 0.005–0.02 each, depending on the negotiated price (9–38× the whole AWS bill; login notices alone are ≈ USD 0.3–1.2 M of it; Registro Civil USD 0.30 per check is verified on gob.ec), Registro Civil ~USD 15 k, eKYC vendor and licences by quote. **DR cost:** warm standby ≈ USD 10–12 k / month vs ≈ USD 50–60 k for active/active.
 
 **ADR-021 – Cost optimization:** commit to the steady baseline (Savings Plans, reserved instances), scale everything above it automatically, run on **Graviton**, and manage cost with **FinOps** (mandatory tags checked in the pipeline, budgets and anomaly detection, cost per user / transaction / SMS, monthly reviews). Justifications: a clear baseline with predictable peaks; better price-performance on ARM; cost made visible to each team. Main levers: SMS price negotiation and push where the SB allows it, non-production shutdown, Spot for CI and batch, WAF bot/ATP scoped to login, log classes and tail sampling, S3 lifecycle for audit.
 
@@ -551,7 +558,7 @@ The architecture above is the **target**. It is reached in **four stages**; each
 | **1. Pretotype** | Pretotyping: *Fake Door* (a "Transfers" button that measures intent and answers "coming soon"), *Pinocchio* (navigable app), *Mechanical Turk* (staff review onboarding by hand) | App and SPA through the gateway to **mock endpoints generated from the OpenAPI contracts**; eKYC vendor sandbox; feature flags and analytics. **No Core, no real data** | 1,000–2,000 |
 | **2. Read-only MVP** | Real value, low risk | Profile, Accounts, Movements with **hexagonal architecture**; real Core and identity integration; biometric login; basic audit; one region, multi-AZ; pilot cohort | 15,000–25,000 |
 | **3. Transactional** | Iterative expansion: own-account first, then interbank, by cohort behind flags | Transfer Saga, idempotency, outbox, Limits, Risk, Notifications (SMS + email), full Audit, Kafka, real onboarding, step-up; **warm standby DR before transfers open beyond the pilot** | 60,000–80,000 (+ SMS) |
-| **4. Enterprise scale** | Hardening driven by measured load and the regulator | Full multi-region with ARC, frequent-client refresh-ahead at scale, Shield Advanced, CloudHSM, chaos and DR drills, push to reduce SMS | 111,000–116,000 (+ SMS) |
+| **4. Enterprise scale** | Hardening driven by measured load and the regulator | Full multi-region with ARC, frequent-client refresh-ahead at scale, Shield Advanced, CloudHSM, chaos and DR drills, push to reduce SMS | 117,000–122,000 (+ SMS) |
 
 **Go / no-go gates** (falsifiable hypotheses "at least X% of Y will do Z"; thresholds to agree with Product):
 
@@ -581,7 +588,7 @@ Every ADR records its context, the alternatives evaluated, the decision and at l
 | ADR | Decision | Alternatives evaluated | Justifications (summary) |
 | --- | --- | --- | --- |
 | 001 | Structurizr DSL for C4 | draw.io, C4-PlantUML, IcePanel | One model → consistent views; diagrams as code in Git; context, container, component, deployment and dynamic views in one tool |
-| 002 | AWS | Azure | Lowest measured latency (~90 ms us-east-1); managed multi-region data services for RPO/RTO; Financial Services Lens |
+| 002 | AWS | Azure | Lowest latency among the AWS regions measured (~90 ms us-east-1; Azure Chile Central not yet measured); managed multi-region data services for RPO/RTO; Financial Services Lens |
 | 003 | us-east-1 primary, us-east-2 DR | São Paulo; us-east-1 + sa-east-1; single region | Latency; DR region with separate risks (SB) and acceptable latency (~103 ms) |
 | 004 | Microservices by bounded context (coarse-grained) | Modular monolith; fine-grained microservices | Independent scaling of reads and payday transfers; fault isolation; data boundaries per compliance rules; reuse |
 | 005 | Angular SPA | React, Vue | Complete opinionated framework; secure by default; predictable support |
@@ -607,7 +614,7 @@ Every ADR records its context, the alternatives evaluated, the decision and at l
 
 | Risk / open question | Mitigation | Owner |
 | --- | --- | --- |
-| **SMS cost** at regulatory volume | Negotiate local price; ask the SB whether push to a bound device counts as "mobile messaging" | Product, Procurement, Compliance |
+| **SMS cost** at regulatory volume (~225 M a month including login notices) | Negotiate local price; ask the SB whether push to a bound device counts as "mobile messaging", starting with login notices (≈ USD 0.3–1.2 M a month) | Product, Procurement, Compliance |
 | Hosting personal data abroad | Processing agreement with contract clauses, bank-managed keys, processing register; hybrid fallback for biometric/KYC evidence | Legal, DPO |
 | Core capacity and availability (outside our control) | Caching, CQRS, rate limiting, bulkheads, graceful degradation; Core modernization roadmap | Architecture, Core team |
 | Identity product lacks FAPI features (PAR, DPoP, RAR) | Add them at the gateway or choose a FAPI-certified product | Security, Architecture |
@@ -616,7 +623,7 @@ Every ADR records its context, the alternatives evaluated, the decision and at l
 | eKYC vendor accuracy on real cédulas and low-end phones; Flutter SDK | PoC with FacePhi and Jumio before contract; alternate vendor behind the adapter | Product, Procurement |
 | Registro Civil biometric data leak investigation (2026) | Registry match always combined with live liveness | Fraud, Compliance |
 | Regulation details to confirm (SB article numbers, 10-year AML retention, JPRF third-party articles, cybersecurity standards) | Legal review before go-live | Legal, Compliance |
-| Hyperscaler region in Chile/Colombia may open | Re-evaluate region choice (AWS Chile region announced) | Architecture |
+| Closer cloud regions: **Azure Chile Central is already open but not measured**; the AWS Chile region is announced, not yet open | Measure Azure Chile Central from Quito, Guayaquil and Cuenca; re-evaluate when AWS Chile opens (the portable design keeps a move feasible) | Architecture |
 | Team skills (Flutter, Kubernetes, Kafka) | Platform team, golden paths, training | Engineering management |
 
 **Future evolution:** new channels (chatbot, DEUNA, open finance APIs) reuse the gateway, identity, notifications and audit (QAS-15); bill payments and loans added as new bounded contexts; gradual migration of Core functions behind the anti-corruption layer (strangler fig); active/active for read journeys if latency or availability targets rise.

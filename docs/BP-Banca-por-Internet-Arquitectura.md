@@ -73,7 +73,7 @@ Los clientes esperan resolver su banca desde el celular o la computadora, a cual
 
 | Tema | Decisión | Por qué |
 | --- | --- | --- |
-| Nube y regiones | **AWS**: us-east-1 (3 zonas) y espera en caliente en us-east-2; enlace híbrido al Core con 2 Direct Connect + VPN | Menor latencia medida desde Ecuador (~90 ms); servicios gestionados multi-región para RPO/RTO |
+| Nube y regiones | **AWS**: us-east-1 (3 zonas) y espera en caliente en us-east-2; enlace híbrido al Core con 2 Direct Connect + VPN | Menor latencia medida desde Ecuador entre las regiones de AWS (~90 ms); servicios gestionados multi-región para RPO/RTO |
 | Estilo | **Microservicios por contexto acotado** (14 servicios), BFF por canal, eventos | Escalado y aislamiento de fallas independientes; desacople y reutilización |
 | Web y móvil | **Angular** con BFF (sin tokens en el navegador); **Flutter** (comparado con React Native) | Seguridad por defecto; binario más difícil de alterar; UI idéntica en todos los equipos |
 | Autenticación | **Authorization Code + PKCE + PAR**, perfil **FAPI 2.0**, tokens **DPoP**; ingreso biométrico con **llave del dispositivo**; paso adicional con vinculación dinámica | Un token robado no sirve; la biometría no sale del teléfono |
@@ -82,7 +82,7 @@ Los clientes esperan resolver su banca desde el celular o la computadora, a cual
 | Clientes frecuentes | **CQRS + Cache-Aside + invalidación por eventos + precalentamiento** con clasificador por eventos | Tablero p95 < 500 ms y protección del Core |
 | Auditoría | Outbox + Kafka → **S3 Object Lock (WORM)** + índice; **cadena de hashes y resúmenes firmados** | Inmutable incluso para administradores |
 | Resiliencia | Multi-AZ y **DR en caliente**: RTO 15 min / RPO 1 min para lo crítico | Las caídas de 2025 hacen de la resiliencia el primer requisito |
-| Costo | AWS ≈ **US$ 111–116 mil / mes** a escala completa (precios unitarios verificados); **el SMS es el mayor costo** | ≈ US$ 0,02 por usuario activo al mes |
+| Costo | AWS ≈ **US$ 117–122 mil / mes** a escala completa (precios unitarios verificados); **el SMS es el mayor costo** | ≈ US$ 0,02 por usuario activo al mes |
 | Entrega | **Cuatro etapas** con puertas de decisión | El gasto y el riesgo crecen con la demanda comprobada |
 
 <div class="kpis"><div><b>99,99 %</b><span>disponibilidad (flujos críticos)</span></div><div><b>≤ 1 min</b><span>pérdida máxima de datos (RPO)</span></div><div><b>≤ 15 min</b><span>tiempo de recuperación (RTO)</span></div><div><b>~90 ms</b><span>latencia medida desde Ecuador</span></div></div>
@@ -108,9 +108,12 @@ Los clientes esperan resolver su banca desde el celular o la computadora, a cual
 | **Ley Orgánica para el Fortalecimiento de la Ciberseguridad** (RO N.º 290, 22 de mayo de 2026) | Marcos de ciberseguridad, respuesta y reporte de incidentes, hacking ético controlado; reforma el art. 43 de la LOPDP (notificación de brechas) | SIEM y SOC, manuales de incidentes con aviso al regulador, pruebas de penetración anuales |
 | **Codificación de la JPRF** – riesgo tecnológico y de terceros (*artículos por confirmar*) | Debida diligencia del proveedor, derechos de auditoría, plan de salida, registro de riesgos de terceros | SOC 2 / ISO 27001 del proveedor, cláusulas de auditoría, **diseño portable** (Kubernetes, Kafka, OpenTelemetry, Terraform) |
 | **Prevención de lavado de activos (UAFE)**, ley 2024 y reglamento 2026 | Conozca a su cliente, monitoreo, reportes, conservación (≥ 10 años, por confirmar) | Onboarding con KYC, servicio de monitoreo AML, archivo WORM |
+| **Código Orgánico Monetario y Financiero (COMF)** | Sigilo bancario y conservación de registros | Autorización a nivel de objeto, acceso del personal registrado y justificado con número de caso, tokenización |
+| **Ley de Comercio Electrónico, Firmas Electrónicas y Mensajes de Datos** | Validez de las transacciones, los mensajes de datos y el consentimiento electrónico | Consentimiento y confirmaciones guardados con fecha, versión del texto, dispositivo y canal en el archivo inmutable |
+| **Protección del usuario financiero** (SB) | Derechos, reclamos y transparencia | Auditoría consultable por cliente para reclamos, retención legal, estado de transferencias visible |
 | **BCE**: norma SPI y estándar de pagos en tiempo real (Res. BCE-GG-007-2026) | Mensajes **ISO 20022** `pacs.008` / `pacs.002`, llaves de pago `acmt`, débito antes del envío, irrevocabilidad; intra-red hasta el **30/11/2026** | Conector interbancario y Saga de transferencias |
 
-**Alojamiento fuera del país.** La norma SPDP 2026 sobre transferencias considera que un proveedor de nube que actúa como **encargado** no realiza una transferencia internacional. Igual se aplican las salvaguardas más estrictas: contrato de encargo con cláusulas tipo, **llaves administradas por el banco** (KMS / CloudHSM), registro de tratamientos y aviso de privacidad que informa el alojamiento en el exterior. Si Legal lo exige, la alternativa es un **esquema híbrido** con la evidencia biométrica y KYC en Ecuador.
+**Alojamiento fuera del país.** La norma SPDP 2026 sobre transferencias nacionales e internacionales de datos considera que un proveedor de nube que actúa como **encargado** no realiza una transferencia internacional. Igual se aplican las salvaguardas más estrictas: contrato de encargo con cláusulas tipo, **llaves administradas por el banco** (KMS / CloudHSM), registro de tratamientos y aviso de privacidad que informa el alojamiento en el exterior. Si Legal lo exige, la alternativa es un **esquema híbrido** con la evidencia biométrica y KYC en Ecuador.
 
 <div class="pb"></div>
 
@@ -154,7 +157,7 @@ Seis contenedores, agrupados en **capas** (API → negocio → integración y da
 
 ### 4.4 Infraestructura y despliegue
 
-<div class="figure"><p class="caption">Figura 4.4 – Producción en AWS: us-east-1 primaria (3 zonas), us-east-2 en espera, enlace híbrido al Core</p><img src="../architecture/.structurizr/1/images/04-Deployment-Production.svg" alt="Despliegue"/><p class="note"><em>Cómo leerlo.</em> Un elemento representativo por servicio de plataforma; las descripciones de los nodos listan todo lo desplegado. Datos replicados de forma continua a us-east-2 (Aurora Global Database, DynamoDB global tables, Global Datastore, MSK Replicator, S3 CRR); el Core se alcanza por Direct Connect. Latencia medida desde Cuenca: us-east-1 ~90 ms, us-east-2 ~103 ms, São Paulo ~157 ms.</p></div>
+<div class="figure"><p class="caption">Figura 4.4 – Producción en AWS: us-east-1 primaria (3 zonas), us-east-2 en espera, enlace híbrido al Core</p><img src="../architecture/.structurizr/1/images/04-Deployment-Production.svg" alt="Despliegue"/><p class="note"><em>Cómo leerlo.</em> Un elemento representativo por servicio de plataforma; las descripciones de los nodos listan todo lo desplegado. Datos replicados de forma continua a us-east-2 (Aurora Global Database, DynamoDB global tables, Global Datastore, MSK Replicator, S3 CRR); el Core se alcanza por Direct Connect. Latencia medida desde Cuenca: us-east-1 ~90 ms, us-east-2 ~103 ms, São Paulo ~157 ms. Azure no se midió: sus regiones del este de EE. UU. están en las mismas ciudades que las de AWS; Azure Chile Central es la incógnita y debe medirse antes de cerrar la decisión.</p></div>
 
 ### 4.5 Diagramas dinámicos
 
@@ -252,7 +255,7 @@ Confianza cero (NIST SP 800-207) y defensa en profundidad: **cliente** (MASVS, R
 
 ## 15. Costos
 
-Estimación mensual a escala completa. **Precios unitarios verificados el 8 de noviembre de 2026 en la AWS Price List pública** (us-east-1, bajo demanda; CloudFront Sudamérica). Verificado = precio unitario comprobado; Parcial = precio comprobado con volumen supuesto; Estimado = requiere cotización. Detalle línea por línea y cómo reproducir cada consulta: `roadmap-steps/16b-cost-validation.md`.
+Estimación mensual a escala completa. **Precios unitarios verificados el 8 de noviembre de 2026 en la AWS Price List pública** (us-east-1, bajo demanda; CloudFront Sudamérica). Verificado = precio unitario comprobado; Parcial = precio comprobado con volumen supuesto; Estimado = requiere cotización. **Volumen de avisos:** ~225 M al mes, cada uno por SMS **y** correo: ~164 M transacciones monetarias más ~60 M avisos de ingreso (cerca de uno por usuario activo al día; la SB exige avisar cada ingreso y se usan los mismos dos canales que para el dinero). Detalle línea por línea y cómo reproducir cada consulta: `roadmap-steps/16b-cost-validation.md`.
 
 | Componente | Precio unitario | US$ / mes | Estado |
 | --- | --- | --- | --- |
@@ -266,12 +269,12 @@ Estimación mensual a escala completa. **Precios unitarios verificados el 8 de n
 | Seguridad: CloudHSM (4) + GuardDuty, Security Hub, Inspector, Macie, KMS | 1,60 / HSM-h | ≈ 9 700 | Verificado / Estimado |
 | Observabilidad | Por uso | ≈ 10 000 | Estimado |
 | Almacenamiento y respaldos | Por uso | ≈ 1 500 | Estimado |
-| Correo: Amazon SES, ~164 M | 0,10 / mil | ≈ 16 400 | Verificado |
-| **Producción** | | **≈ 91 000** (> 60 % con precios verificados) | |
+| Correo: Amazon SES, ~225 M (transacciones + ingresos) | 0,10 / mil | ≈ 22 500 | Verificado |
+| **Producción** | | **≈ 97 000** (> 60 % con precios verificados) | |
 | No productivo (apagado programado) | | ≈ 20 000–25 000 | Estimado |
-| **Total AWS** | | **≈ 111 000–116 000** (≈ US$ 0,02 por usuario activo) | |
+| **Total AWS** | | **≈ 117 000–122 000** (≈ US$ 0,02 por usuario activo) | |
 
-**Fuera de AWS:** SMS ≈ **US$ 0,8–3,3 millones al mes** según el precio negociado (de 7 a 30 veces toda la factura de AWS), Registro Civil ≈ US$ 15 mil, proveedor eKYC y licencias por cotizar. **DR en caliente** ≈ US$ 10–12 mil al mes (frente a ≈ 50–60 mil de activo-activo). **Palancas:** precio del SMS y push donde la SB lo acepte; compromisos sobre la base (Savings Plans, reservas); Graviton; apagado de entornos no productivos; índice de auditoría en una sola región (≈ US$ 3 mil al mes menos); FinOps con etiquetas, presupuestos y costo por usuario y por transacción.
+**Fuera de AWS:** SMS ≈ **US$ 1,1–4,5 millones al mes** por ~225 M mensajes a US$ 0,005–0,02, según el precio negociado (de 9 a 38 veces toda la factura de AWS; solo los avisos de ingreso son ≈ US$ 0,3–1,2 millones), Registro Civil ≈ US$ 15 mil, proveedor eKYC y licencias por cotizar. **DR en caliente** ≈ US$ 10–12 mil al mes (frente a ≈ 50–60 mil de activo-activo). **Palancas:** precio del SMS y push donde la SB lo acepte; compromisos sobre la base (Savings Plans, reservas); Graviton; apagado de entornos no productivos; índice de auditoría en una sola región (≈ US$ 3 mil al mes menos); FinOps con etiquetas, presupuestos y costo por usuario y por transacción.
 
 ## 16. Plan de entregas y evolución
 
@@ -282,7 +285,7 @@ Esta arquitectura es el **destino**. No se construye entera antes de que el prim
 | **1. Pretotipo** | *Fake Door* (botón de transferencias que mide intención y responde "próximamente"), *Pinocchio* (app navegable), *Mechanical Turk* (el personal revisa a mano) | App y SPA sobre el gateway hacia **endpoints simulados desde los contratos OpenAPI**; eKYC en el entorno de pruebas del proveedor. **Sin Core, sin datos reales** | 1 000–2 000 |
 | **2. MVP de solo lectura** | Valor real con bajo riesgo | Perfil, Cuentas y Movimientos con **arquitectura hexagonal**; integración real con Core e identidad; ingreso biométrico; auditoría básica; una región multi-zona; piloto | 15 000–25 000 |
 | **3. Transaccional** | Expansión iterativa: primero cuentas propias, luego interbancarias, por cohortes y con banderas | Saga, idempotencia, outbox, límites, riesgo, notificaciones, auditoría completa, Kafka, onboarding real, paso adicional; **DR en caliente antes de abrir transferencias fuera del piloto** | 60 000–80 000 (+ SMS) |
-| **4. Escala empresarial** | Endurecimiento según carga medida y regulador | Multi-región completa, clientes frecuentes a escala, Shield Advanced, CloudHSM, caos y simulacros, push para reducir SMS | 111 000–116 000 (+ SMS) |
+| **4. Escala empresarial** | Endurecimiento según carga medida y regulador | Multi-región completa, clientes frecuentes a escala, Shield Advanced, CloudHSM, caos y simulacros, push para reducir SMS | 117 000–122 000 (+ SMS) |
 
 | Puerta | Hipótesis («al menos X % de Y hará Z»; umbrales a ajustar con Producto) | Si falla |
 | --- | --- | --- |
@@ -312,7 +315,7 @@ Cada decisión tiene al menos dos justificaciones y las alternativas evaluadas; 
 | ADR | Decisión | Alternativas descartadas | Justificaciones |
 | --- | --- | --- | --- |
 | 001 | Structurizr DSL para C4 | draw.io, C4-PlantUML, IcePanel | Un modelo → vistas coherentes; diagramas como código en Git |
-| 002 | AWS | Azure | Menor latencia medida (~90 ms); servicios multi-región gestionados para RPO/RTO |
+| 002 | AWS | Azure | Menor latencia entre las regiones de AWS medidas (~90 ms; Azure Chile Central sin medir); servicios multi-región gestionados para RPO/RTO |
 | 003 | us-east-1 primaria, us-east-2 DR | São Paulo; us-east-1 + sa-east-1; una sola región | Latencia; región de DR con riesgos distintos (SB) y ~103 ms |
 | 004 | Microservicios por contexto (gruesos) | Monolito modular; microservicios finos | Escalado independiente; aislamiento de fallas; límites de datos por norma |
 | 005 | Angular | React, Vue | Framework completo; seguro por defecto; soporte predecible |
@@ -338,15 +341,17 @@ Cada decisión tiene al menos dos justificaciones y las alternativas evaluadas; 
 
 | Riesgo o supuesto | Mitigación | Responsable |
 | --- | --- | --- |
-| Costo del SMS al volumen regulatorio | Negociar precio local; consultar a la SB si push a un dispositivo vinculado cuenta como mensajería móvil | Producto, Compras, Cumplimiento |
+| Costo del SMS al volumen regulatorio (~225 M al mes con los avisos de ingreso) | Negociar precio local; consultar a la SB si push a un dispositivo vinculado cuenta como mensajería móvil, empezando por los avisos de ingreso (≈ US$ 0,3–1,2 millones al mes) | Producto, Compras, Cumplimiento |
 | Datos personales alojados fuera de Ecuador | Contrato de encargo con cláusulas, llaves del banco, registro; alternativa híbrida | Legal, Delegado de datos |
 | Capacidad y disponibilidad del Core | Caché, CQRS, límites, aislamiento, degradación elegante | Arquitectura, equipo del Core |
 | Capacidades FAPI del servidor de autorización (PAR, DPoP, RAR) | Agregarlas en el gateway o elegir un producto certificado | Seguridad, Arquitectura |
 | Identidad y enlace a la red de pagos disponibles desde ambas regiones | Requisito de DR declarado | Infraestructura |
 | *SIM swap* sobre el OTP por SMS | TOTP / confirmación en la app primero; SMS de respaldo | Seguridad, Fraude |
 | Precisión del eKYC con cédulas reales y teléfonos de gama baja; SDK Flutter | Prueba de concepto antes de contratar; proveedor alterno tras el adaptador | Producto, Compras |
+| Investigación por filtración de datos biométricos del Registro Civil (2026) | La coincidencia con el registro siempre se combina con prueba de vida en el momento | Fraude, Cumplimiento |
 | Detalles normativos (artículos SB, retención UAFE, artículos JPRF, estándares de ciberseguridad) | Revisión legal antes de producción | Legal, Cumplimiento |
-| Apertura de regiones de nube en Chile o Colombia | Reevaluar la región | Arquitectura |
+| Regiones de nube más cercanas: **Azure Chile Central ya existe pero no se midió**; la región de AWS en Chile está anunciada, aún no abierta | Medir Azure Chile Central desde Quito, Guayaquil y Cuenca; reevaluar cuando abra AWS Chile (el diseño portable permite moverse) | Arquitectura |
+| Habilidades del equipo (Flutter, Kubernetes, Kafka) | Equipo de plataforma, plantillas de servicio (*golden paths*), capacitación | Gerencia de ingeniería |
 
 ## 19. Trazabilidad con los criterios de evaluación
 
