@@ -67,7 +67,7 @@ Scores from 1 (weak) to 5 (strong). Weights reflect the grading criteria and the
 
 ### Justifications
 
-1. **Measured latency.** us-east-1 has the lowest measured round trip from Ecuador (~90 ms), and it's AWS's largest region with every service available. Low latency is an explicit requirement of the statement.
+1. **Measured latency.** us-east-1 has the lowest round trip from Ecuador among the AWS regions measured (~90 ms), and it's AWS's largest region with every service available. Azure was not measured: its US East regions share the same metros, so similar numbers are expected; Azure Chile Central is the unknown (see the to-do in 1.2). Low latency is an explicit requirement of the statement.
 2. **Recovery targets met with managed services.** Aurora Global Database gives cross-region replication typically under 1 second, which meets the critical-journey RPO of 1 minute. Combined with Route 53 Application Recovery Controller, a managed regional failover fits within the 15-minute RTO. Less custom DR code means less operational risk, which matters given the bank's 2025 outages.
 3. **Well-Architected Financial Services Industry Lens.** AWS publishes a framework specific to financial services (resilience, compliance and data protection controls). The proposal can use it as a reference to justify the design to the SB.
 

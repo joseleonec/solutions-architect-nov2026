@@ -9,7 +9,7 @@ The architecture in Steps 4–17 is the **target**. It is not built in one go be
 | **1. Pretotype** (4–6 weeks) | Pretotyping: *Fake Door* (a "Transfers" button that measures intent and answers "coming soon, tell us if you want it"), *Pinocchio* (navigable app), *Mechanical Turk* (staff do onboarding review by hand) | App and SPA through the gateway to **mock endpoints generated from the OpenAPI contracts**; eKYC in the vendor's sandbox; feature flags and product analytics. No Core, no real customer data | 1,000–2,000 |
 | **2. Read-only MVP** | Minimum viable product: real value, low risk | Profile, Accounts and Movements with **hexagonal architecture** (domain isolated from the Core Adapter); real Core and identity integration; login with biometrics; basic audit; one region, multi-AZ; pilot cohort | 15,000–25,000 |
 | **3. Transactional** | Iterative expansion: own-account first, then interbank, by cohort and behind flags | Transfer Saga, idempotency, outbox, Beneficiary & Limits, Risk Scoring, Notifications (SMS + email), full Audit, Kafka, real onboarding, step-up; **warm standby DR before transfers open beyond the pilot** | 60,000–80,000 (+ SMS by volume) |
-| **4. Enterprise scale** | Hardening driven by measured load and regulator requirements | Full multi-region (ARC Region switch), frequent-client refresh-ahead and CQRS at full scale, Shield Advanced, CloudHSM, chaos and DR drills, push to reduce SMS | 105,000–120,000 (+ SMS) |
+| **4. Enterprise scale** | Hardening driven by measured load and regulator requirements | Full multi-region (ARC Region switch), frequent-client refresh-ahead and CQRS at full scale, Shield Advanced, CloudHSM, chaos and DR drills, push to reduce SMS | 117,000–122,000 (+ SMS) |
 
 ## 2. Go / no-go gates
 
@@ -60,5 +60,5 @@ A fake-door test in a bank must be honest ("coming soon — tell us if you want 
 **Justifications:**
 
 1. **Evidence before investment.** Each stage tests a demand or reliability hypothesis before the next, more expensive stage is funded, so money isn't spent on features customers don't use.
-2. **Cost and risk grow with demand.** Cloud cost goes from ~USD 1–2 k a month (stage 1) to the full ~USD 105–120 k only when usage justifies it; regulatory risk is controlled by the minimum resilience line (no real data in stage 1, DR before transfers scale).
+2. **Cost and risk grow with demand.** Cloud cost goes from ~USD 1–2 k a month (stage 1) to the full ~USD 117–122 k only when usage justifies it; regulatory risk is controlled by the minimum resilience line (no real data in stage 1, DR before transfers scale).
 3. **No throw-away rewrite.** Contracts first, hexagonal adapters and gateway routing let each stage replace the previous one in place.

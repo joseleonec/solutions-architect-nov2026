@@ -12,7 +12,8 @@ Supporting file for Step 16 and the PDF cost section. It shows where each figure
 | Driver | Value |
 | --- | --- |
 | API requests | ~2.6 B a month (1,000 req/s average, 5,000 peak) |
-| Monetary transactions / notices | ~164 M a month |
+| Monetary transactions | ~164 M a month |
+| Regulatory notices (SMS + email each) | ~225 M a month: ~164 M monetary transactions + ~60 M login notices (~2 M DAU × 30 days; the SB requires notifying every e-banking login) |
 | Movements into the read model | ~300 M a month |
 | Audit records | ~86 M a day (~2.6 B a month) |
 | Edge data out | ~13 TB a month |
@@ -43,16 +44,16 @@ Supporting file for Step 16 and the PDF cost section. It shows where each figure
 | GuardDuty, Security Hub, Inspector, Macie, Security Lake, KMS | Usage-based | — | ≈ 5,000 | Estimated |
 | Observability | Managed Prometheus, Grafana, CloudWatch Logs IA, traces, RUM, Synthetics | — | ≈ 10,000 | Estimated |
 | S3, backups, Athena | Audit archive, AWS Backup copies | — | ≈ 1,500 | Estimated |
-| Amazon SES | ~164 M emails | 0.10 / 1,000 recipients | ≈ 16,400 | Verified |
-| **Production total** | | | **≈ 91,000** | > 60% verified |
+| Amazon SES | ~225 M emails (transactions + logins) | 0.10 / 1,000 recipients | ≈ 22,500 | Verified |
+| **Production total** | | | **≈ 97,000** | > 60% verified |
 | Non-production (scheduled shutdown) | Staging ~30%, dev/QA ~15% of the variable lines | | ≈ 20,000–25,000 | Estimated |
-| **AWS total** | | | **≈ 111,000–116,000** | |
+| **AWS total** | | | **≈ 117,000–122,000** | |
 
 ### Outside AWS
 
 | Item | Basis | USD / month | Status |
 | --- | --- | --- | --- |
-| SMS (local aggregator) | ~164 M messages × 0.005–0.02 | 0.8 M – 3.3 M | Estimated (quote) |
+| SMS (local aggregator) | ~225 M messages × 0.005–0.02 (login notices ≈ 0.3–1.2 M of it) | 1.1 M – 4.5 M | Estimated (quote) |
 | Registro Civil (SNIC) | 50 k × 0.30 | 15,000 | Verified (gob.ec) |
 | eKYC vendor | 50 k × 0.5–2 | 25,000–100,000 | Estimated (quote) |
 | Kong Enterprise, RASP SDK, PagerDuty, fraud engine | Licences | Quote | Estimated |
@@ -62,7 +63,8 @@ Supporting file for Step 16 and the PDF cost section. It shows where each figure
 - Compute is lower (≈ 6.7 k vs 8 k): m7g.xlarge list price is 0.1632/h.
 - DynamoDB is higher (≈ 8 k vs 5 k): the audit hot index (2.6 B writes a month) replicated to two regions dominates. **Lever:** keep the audit hot index in one region (it can be rebuilt from the S3 archive after a failover) and use the Standard-IA table class: saves ≈ 3 k a month.
 - WAF Fraud Control is priced per login request (1 USD per 1,000 at tier 1), so it must stay scoped to password logins.
-- Totals stay inside the original range (AWS ≈ USD 105–120 k a month).
+- **Login notices added** (cross-review, 8 Nov 2026): the first estimate counted only the ~164 M monetary transactions. Adding ~60 M login notices by SMS + email raises SES from ≈ 16.4 k to ≈ 22.5 k and SMS from 0.8–3.3 M to 1.1–4.5 M a month.
+- The AWS total (≈ USD 117–122 k a month) is now slightly above the first range (105–120 k) because of the login notices.
 
 ## How to reproduce one line
 

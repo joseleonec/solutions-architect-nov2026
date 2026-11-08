@@ -18,13 +18,15 @@ Goal: before designing anything, know exactly **what** must be built, **how well
 | FR-06 | **Transfers between own accounts** | §3 | Internal, through the Core. |
 | FR-07 | **Interbank transfers** | §3, §3.7 | Calls external services, which depend on the transfer type. |
 | FR-08 | **Payments** between own and interbank accounts | §3 | Scope is ambiguous, see A-10. |
-| FR-09 | **Notify customers of every movement** through **at least 2** notification systems | §3.2 | Required by regulation. |
+| FR-09 | **Notify customers of every movement** through **at least 2** notification systems | §3.2 | Required by regulation (Step 2): **mobile messaging (SMS) and email simultaneously** for every monetary transaction, and a notice on **every e-banking login**. |
 | FR-10 | **Audit log** of all customer actions | §3.6 | Stored in a dedicated audit database. |
 | FR-11 | **Persistence for frequent clients** for a better and faster experience | §3.6 | Must be based on design patterns. |
 | FR-12 | **Integration layer** with an **API Gateway** that routes to services by transaction type | §3.7 | 3 base services. More can be added. |
 | FR-13 | *(added)* Transaction status tracking for asynchronous interbank transfers | Implied by §3.7 | The customer must see pending, completed or failed. |
-| FR-14 | *(added)* Beneficiary (contacts) management for third-party and interbank transfers | Implied by FR-07 | Common banking feature. Reduces input errors. |
-| FR-15 | *(added)* Step-up confirmation (OTP or biometric) for sensitive operations | Implied by security and regulation | Applies to transfers, new beneficiaries and limit changes. |
+| FR-14 | *(added)* Beneficiary (contacts) management for third-party and interbank transfers | Implied by FR-07, regulation | A **regulatory requirement** (Step 2), not only a feature: registered beneficiaries ("favourite accounts") and **customer-defined maximum amounts**. |
+| FR-15 | *(added)* Step-up confirmation (OTP or biometric) for sensitive operations | Implied by security and regulation | Applies to transfers, new beneficiaries and limit changes. Regulation (Step 2) requires **2 of 3 factors** for transfers to **unregistered accounts**. |
+| FR-16 | *(added, Step 2)* **Device binding**: mobile transactions only from authorized devices | Regulation | Device Service, DPoP keys in secure hardware (Step 6). |
+| FR-17 | *(added, Step 2)* **Real-time transaction risk scoring** (allow, step-up or reject, and notify) | Regulation | Risk Scoring Service (Step 4, Step 12). |
 
 ---
 
@@ -39,7 +41,7 @@ Goal: before designing anything, know exactly **what** must be built, **how well
 | C-05 | Base services: **basic data query, movements query, transfers**. |
 | C-06 | **At least 2** notification systems, external or in-house. |
 | C-07 | A dedicated **audit database**. |
-| C-08 | Cloud is **optional**, but if used it must be **AWS or Azure**. Budget is available. |
+| C-08 | Cloud is **optional**, but if used it must be **AWS or Azure**. Budget is available. Hosting abroad is permitted (Step 2): inform the SB, annual independent audit, ISO 27001/27017/27018 and Tier III providers, and a data processing contract under the LOPDP. |
 | C-09 | Documented with the **C4 model** down to the component level. Infrastructure diagram in any notation. |
 | C-10 | Deliverable: a **PDF** (in CoderPad and in a public GitHub repo) within **72 h**. |
 
@@ -128,6 +130,7 @@ These are estimates from the public numbers. Show the calculation in the PDF so 
 | API requests (reads included) | ~10 API calls per monetary transaction (login, balance, movements, beneficiaries) | **~1,600 req/s** normal peak, **~5,000 req/s** payday |
 | Daily active users | 164 M per month ÷ 5.5 M active users ≈ 30 transactions per user per month. Assume about 35% are active on any given day. | **~2 M DAU** |
 | Concurrent sessions | 2 M DAU, ~12% in the peak hour, 4-minute sessions: 240 k × 4/60 | **~16 k** normal peak, **~50–80 k** on payday |
+| Regulatory notices | 164 M monetary transactions + ~60 M logins (2 M DAU × 30 days, at least one notified login per active day) | **~225 M a month**, each by SMS and email (Steps 11 and 16b) |
 
 ### 4.3 Assumptions table
 
@@ -142,11 +145,11 @@ These are estimates from the public numbers. Show the calculation in the PDF so 
 | A-06 | Read/write ratio | **~90 / 10** of API calls. Transfers are 75% of the *monetary* operations, but each one comes with several reads. | Justifies caching and CQRS. |
 | A-07 | Availability target | **99.99%** for critical journeys (login, balance, transfers), about 4.3 min of downtime a month. **99.95%** for the rest. | The 2025 outages led to sanctions and a run. Drives multi-AZ and active failover. |
 | A-08 | RTO / RPO | Critical: **15 min / 1 min**. Non-critical: **4 h / 1 h**. | Drives the DR strategy (warm standby or active-active for the critical path) and its cost. |
-| A-09 | Audit retention | **7 years** with WORM (to be confirmed against the regulation in Step 2) | Storage tiering and cost. |
+| A-09 | Audit retention | **12 months online** minimum (SB) and **10 years archive** with WORM for transaction and KYC/AML records (UAFE; exact period to verify in the regulation text). Updated in Step 2 (first assumption was 7 years). | Storage tiering and cost. |
 | A-10 | Meaning of "payments" | Payments to third-party and interbank accounts and to the customer's own credit cards and loans. Utility and bill payments are a future extension. | Bounds the scope of the payments service. |
 | A-11 | The Core and complementary system | On-premises, exposing APIs (REST/SOAP). We can't modify them. The Core has limited capacity. This fits the bank's ongoing, gradual cloud migration. | Hybrid connectivity, an anti-corruption layer, and protecting the Core. |
 | A-12 | The OAuth 2.0 product | Supports OIDC, Authorization Code + PKCE, MFA, custom claims, and token introspection or JWKS. | Basis for the authentication recommendation. |
-| A-13 | Interbank transfers | Go through the national interbank payment system. Some are near-real-time, others are processed in batches. | Asynchronous design and status tracking (FR-13). |
+| A-13 | Interbank transfers | Go through the BCE: **SPI** (deferred, batch settlement) and **real-time payments** (instant, capped at one basic salary). Updated in Step 2. | Asynchronous design and status tracking (FR-13). |
 | A-14 | Users and channels | Retail customers, Spanish-speaking, nationwide. About **90% mobile and 10% web** (5.2 M app users out of 5.5 M active digital users). | Mobile-first priorities. The SPA is secondary but still required. |
 | A-15 | Interaction with DEUNA | DEUNA is a separate product. It's **out of scope**, but the API layer should be reusable by it in the future. | Supports the reusability requirement (QAS-15). |
 
