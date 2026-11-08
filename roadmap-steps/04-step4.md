@@ -116,7 +116,7 @@ How the contexts relate to each other and to systems outside the boundary:
 
 | Interaction | Style | Why |
 | --- | --- | --- |
-| Client → BFF → Gateway → services | **Synchronous** (HTTPS) | The user is waiting for an answer. |
+| Client → Edge → Gateway → BFF → services | **Synchronous** (HTTPS) | The user is waiting for an answer. |
 | Transfer → Limits, Risk, Core Adapter | **Synchronous**, with timeouts and circuit breakers | A decision is needed before the money moves. |
 | Transfer → Interbank Connector | **Asynchronous** (command via queue) + status updates | Settlement may take time (SPI deferred). FR-13 status tracking. |
 | Any service → Notifications, Audit, AML | **Asynchronous events** | They must never slow down or break the critical path. Audit must not lose events (outbox). |
@@ -126,7 +126,7 @@ How the contexts relate to each other and to systems outside the boundary:
 
 ## 6. Example flow: transfer to a registered beneficiary
 
-1. Mobile app → **Mobile BFF** → **API Gateway** (token and device validated).
+1. Mobile app → **API Gateway** (token and DPoP validated) → **Mobile BFF** (device binding checked).
 2. **Transfer Service** stores the order with its **idempotency key** (status `RECEIVED`).
 3. **Beneficiary & Limits**: is the beneficiary registered and the amount within limits?
 4. **Risk Scoring**: allow / reject / step-up. A new beneficiary always requires step-up with 2 of 3 factors (Step 2).

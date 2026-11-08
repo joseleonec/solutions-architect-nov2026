@@ -18,17 +18,25 @@
  ┌─────────────────────────────────────────────────┐            │ sender-constrained token
  │ CloudFront + AWS WAF + Shield                   │◄───────────┘
  │  /            → S3 (static SPA, Origin Access)  │
- │  /bff/web/*   → Web BFF                         │
- │  /bff/mobile/*→ Mobile BFF                      │
+ │  /bff/*       → API Gateway (Kong)              │
+ └────────────────────────┬────────────────────────┘
+                          ▼
+ ┌─────────────────────────────────────────────────┐
+ │ API Gateway (Kong): JWT + DPoP + acr checks,    │
+ │ rate limits, routing, access log (Steps 6, 8)   │
+ │  /bff/web/*    → Web BFF                        │
+ │  /bff/mobile/* → Mobile BFF                     │
  └─────────┬───────────────────────┬───────────────┘
            ▼                       ▼
      Web BFF (confidential      Mobile BFF (screen-shaped APIs,
      OAuth client, token        device context, app version checks)
      handler)                          │
            └──────────┬────────────────┘
-                      ▼
-                 API Gateway → domain services (Step 4)
+                      ▼ REST over mTLS (Istio)
+                 domain services (Step 4)
 ```
+
+> **Order of hops (aligned in Step 17):** Edge → **API Gateway** → BFF → services. The gateway is the single entry point (C-04), so it can check the DPoP proof on the first hop the client calls. For the web route, the gateway applies rate limits and logging, and the Web BFF turns the session cookie into the access token it forwards to the services.
 
 | Container | Technology | Responsibility | Tier |
 | --- | --- | --- | --- |
