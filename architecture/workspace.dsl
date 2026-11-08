@@ -528,6 +528,10 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
         // ---------- Level 1 ----------
         systemContext bp "01-Context" "System context: who uses BP Internet Banking and which systems it depends on. For business and non-technical stakeholders." {
             include *
+            exclude "smsA -> bp"
+            exclude "smsB -> bp"
+            exclude "push -> bp"
+            exclude "identity -> bp"
             autolayout lr 300 200
         }
 
@@ -680,7 +684,7 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
 
         styles {
             element "Element" {
-                fontSize 22
+                fontSize 30
                 shape roundedbox
             }
             element "Person" {
@@ -764,8 +768,9 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
                 border dashed
             }
             relationship "Relationship" {
-                thickness 2
-                fontSize 20
+                thickness 3
+                fontSize 28
+                width 300
             }
             relationship "Async" {
                 style dashed
