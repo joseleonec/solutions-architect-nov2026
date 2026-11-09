@@ -53,6 +53,8 @@ A fake-door test in a bank must be honest ("coming soon — tell us if you want 
 
 ## ADR-022: Staged delivery with pretotyping and decision gates
 
+**Status:** Proposed
+
 **Decision:** deliver in four stages with hypothesis-based gates, a minimum resilience line per stage and an explicit technical-debt register.
 
 **Alternatives:** single big-bang delivery; prototype-then-rewrite.

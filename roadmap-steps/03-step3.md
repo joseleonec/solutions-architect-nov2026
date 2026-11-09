@@ -35,7 +35,23 @@ Measured on 8 Nov 2026 from **Cuenca, Ecuador (ISP: ETAPA)**. The value is the T
 
 **Why São Paulo is slower than Virginia:** Ecuador's submarine cables land on the Pacific coast and connect mainly to the USA (Miami). Traffic to Brazil usually goes through Miami first. Geographic closeness doesn't mean network closeness.
 
-> **To do:** repeat the test from Quito and Guayaquil, and run [azurespeed.com](https://www.azurespeed.com) in a browser for the Azure regions (including **Chile Central**). Add the results to this table. Azure's US East and Brazil regions are in the same metros as AWS's, so expect similar numbers; Chile Central is the unknown.
+**Second run, both clouds (8 Nov 2026, same place and method).** Azure endpoints are the AzureSpeed test storage accounts (`s8<region>.blob.core.windows.net`); AWS endpoints were measured again in the same run for comparison. Median of samples 2–5:
+
+| Region | Round trip (ms) |
+| --- | --- |
+| AWS us-east-2 | ~102 |
+| **AWS us-east-1** | **~103** |
+| Azure East US 2 | ~107 |
+| Azure East US | ~109 |
+| Azure South Central US | ~114 |
+| Azure Mexico Central | ~124 |
+| AWS sa-east-1 | ~158 |
+| **Azure Chile Central** | **~178** |
+| Azure Brazil South | ~186 |
+
+The whole run was ~10 ms slower than the first one (network conditions), but the ranking is clear: AWS and Azure **US East are a near tie**, and **Azure Chile Central is slower**, not faster, because traffic from Ecuador still goes through the US. Geographic closeness doesn't mean network closeness, as with São Paulo.
+
+> **To do:** repeat the test from Quito and Guayaquil (the bank's main user bases).
 
 **Is ~90 ms enough?** QAS-06 asks for a dashboard p95 under 500 ms. With connection reuse (HTTP/2), one round trip (~90 ms) plus a cache hit (~10 ms) leaves plenty of margin. Terminating TLS at a CDN edge close to users (CloudFront / Front Door) also removes the handshake round trips from the critical path.
 
@@ -53,12 +69,12 @@ Scores from 1 (weak) to 5 (strong). Weights reflect the grading criteria and the
 
 | Criterion | Weight | AWS | Azure | Notes |
 | --- | --- | --- | --- | --- |
-| Latency from Ecuador | 20% | 5 | 4 | AWS us-east-1 measured at ~90 ms. Azure Chile Central is unmeasured and might be competitive. |
+| Latency from Ecuador | 20% | 5 | 4 | Same run: AWS us-east-1 ~103 ms, Azure East US ~109 ms, Azure Chile Central ~178 ms. Near tie on US East; Azure's closest region is not faster. |
 | Multi-region data services for the RPO/RTO target | 20% | 5 | 4 | AWS: Aurora Global Database (typical replication lag < 1 s), DynamoDB global tables, Route 53 Application Recovery Controller. Azure: SQL failover groups, Cosmos DB multi-region. Both work. AWS's managed global failover is more mature. |
 | Regulatory evidence (ISO 27001/27017/27018, SOC 2, Tier III) | 15% | 5 | 5 | Both. AWS Artifact / Microsoft Service Trust Portal. |
 | Immutable audit storage (WORM) | 10% | 5 | 5 | S3 Object Lock / Azure immutable Blob storage. |
 | Edge security (CDN, WAF, DDoS) | 10% | 5 | 5 | CloudFront + WAF + Shield / Front Door + WAF + DDoS Protection. |
-| Future proximity (South America) | 10% | 4 | 5 | Azure Chile Central exists today. AWS has Lima and Santiago Local Zones, with a Chile region announced. |
+| Future proximity (South America) | 10% | 4 | 5 | Azure Chile Central exists today (but measured slower from Ecuador, ~178 ms). AWS has Lima and Santiago Local Zones, with a Chile region announced. |
 | Enterprise fit at the bank | 10% | 3 | 4 | Not public. Large banks often have Microsoft enterprise agreements, and the bank's known cloud product is Oracle (ERP). Neutral to slightly in Azure's favour. |
 | Ecosystem and talent in the region | 5% | 4 | 4 | Both strong. |
 | **Weighted total** | 100% | **4.65** | **4.45** | Close: the decision is defensible either way. |
@@ -67,13 +83,13 @@ Scores from 1 (weak) to 5 (strong). Weights reflect the grading criteria and the
 
 ### Justifications
 
-1. **Measured latency.** us-east-1 has the lowest round trip from Ecuador among the AWS regions measured (~90 ms), and it's AWS's largest region with every service available. Azure was not measured: its US East regions share the same metros, so similar numbers are expected; Azure Chile Central is the unknown (see the to-do in 1.2). Low latency is an explicit requirement of the statement.
+1. **Measured latency.** us-east-1 has the lowest round trip from Ecuador among the AWS regions (~90 ms), and it's AWS's largest region with every service available. Measured side by side, Azure is no faster: East US ~109 ms vs us-east-1 ~103 ms, and Chile Central ~178 ms (section 1.2). Latency is a near tie, so justifications 2 and 3 decide. Low latency is an explicit requirement of the statement.
 2. **Recovery targets met with managed services.** Aurora Global Database gives cross-region replication typically under 1 second, which meets the critical-journey RPO of 1 minute. Combined with Route 53 Application Recovery Controller, a managed regional failover fits within the 15-minute RTO. Less custom DR code means less operational risk, which matters given the bank's 2025 outages.
 3. **Well-Architected Financial Services Industry Lens.** AWS publishes a framework specific to financial services (resilience, compliance and data protection controls). The proposal can use it as a reference to justify the design to the SB.
 
 ### Trade-offs and when to revisit
 
-- Azure Chile Central might give lower latency to Ecuador. If measurements show it beats ~90 ms clearly, re-evaluate.
+- Azure Chile Central was measured slower (~178 ms) than either cloud's US East regions; re-check only if Ecuador's routes change (e.g. a new Pacific cable landing in Chile).
 - Revisit when the **AWS Chile region** opens. It may offer lower latency and South American data residency.
 - Lock-in mitigation: containers (Kubernetes), open protocols (OIDC, OpenTelemetry, Kafka-compatible messaging) and Terraform keep the application layer portable.
 
@@ -150,5 +166,6 @@ The SB requires isolated development, test and production environments with segr
 - [x] Primary and DR regions chosen (ADR-003)
 - [x] Hybrid connectivity to the on-premises Core outlined
 - [x] Landing zone and environment isolation outlined
-- [ ] **Your review:** measure Azure (especially Chile Central) at azurespeed.com, and from Quito/Guayaquil if possible
-- [ ] **Your review:** confirm whether the AWS Chile region has opened
+- [x] Measure Azure (especially Chile Central): done from Cuenca, section 1.2 (Chile Central ~178 ms, East US ~109 ms)
+- [ ] **Your review:** repeat the measurements from Quito and Guayaquil
+- [x] Confirm whether the AWS Chile region has opened: not yet (announced for end of 2026; no launch announcement found on 8 Nov 2026)

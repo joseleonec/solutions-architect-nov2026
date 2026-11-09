@@ -121,7 +121,7 @@ Notes on the scores:
 
 ## 4. Token handling in the browser (SPA)
 
-Follows the IETF *OAuth 2.0 for Browser-Based Applications* Best Current Practice, which ranks the **Backend for Frontend (BFF)** pattern as the most secure architecture for browser apps. The details of the OAuth flow are in Step 6.
+Follows the IETF *OAuth 2.0 for Browser-Based Applications* Best Current Practice (**RFC 10017 / BCP 212**, Aug 2026), which ranks the **Backend for Frontend (BFF)** pattern as the most secure architecture for browser apps. The details of the OAuth flow are in Step 6.
 
 | Rule | Implementation |
 | --- | --- |
@@ -237,4 +237,4 @@ mobile   -> biometrics "Captures document, selfie and liveness with" "Vendor SDK
 - [x] Micro-frontends evaluated and rejected, with a revisit trigger
 - [x] Front-end container design ready for the Step 17 diagram
 - [ ] **Your review:** if you know the bank's existing web or mobile stack (job postings often show it), adjust the talent scores
-- [ ] **Your review:** confirm the RFC number for the browser-based apps BCP
+- [x] Confirm the RFC number for the browser-based apps BCP: **RFC 10017 / BCP 212** (Aug 2026, [RFC Editor announcement](https://mailarchive.ietf.org/arch/msg/oauth/VxtwQa4eBrl1Xt9AngohL3BYAFo/))

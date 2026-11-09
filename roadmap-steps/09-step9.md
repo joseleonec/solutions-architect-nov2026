@@ -35,6 +35,8 @@ Only **three data technologies** (Aurora PostgreSQL, DynamoDB, Redis-compatible 
 
 ### ADR-012: Data store technologies
 
+**Status:** Proposed
+
 **Decision:** Aurora PostgreSQL for transactional services, DynamoDB for high-volume key-value and read models, ElastiCache (Valkey / Redis OSS) for caching.
 
 | Criterion                                        | Aurora PostgreSQL                                                                            | DynamoDB                                   | ElastiCache (Valkey / Redis)           |
@@ -127,6 +129,8 @@ Transfer svc ──outbox──► MSK ─┘
 ## 5. Integrating with the Core: getting changes out
 
 ### ADR-014: Change Data Capture from the Core
+
+**Status:** Proposed
 
 | Option                                                                       | Freshness | Load on Core                          | Needs from the Core team                         | Verdict                                                  |
 | ---------------------------------------------------------------------------- | --------- | ------------------------------------- | ------------------------------------------------ | -------------------------------------------------------- |
@@ -231,8 +235,8 @@ The **Movements projector** is the anti-corruption layer for CDC: it maps Core t
 - [X] Core integration via CDC (ADR-014: Debezium on a read replica), with fallback and reconciliation
 - [X] Movements read model and cache sized
 - [X] Data protection controls
-- [ ] Draw the component view of the Accounts / Movements / Dashboard Precompute path in Structurizr (Step 17)
-- [ ] **Your review:** check DynamoDB and ElastiCache costs with the AWS Pricing Calculator in Step 15
+- [x] Draw the component view of the Accounts / Movements / Dashboard Precompute path in Structurizr (Step 17)
+- [x] Check DynamoDB and ElastiCache costs: done against the AWS Price List in [16b-cost-validation.md](16b-cost-validation.md)
 
 ---
 

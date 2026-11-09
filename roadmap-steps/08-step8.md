@@ -292,7 +292,7 @@ CloudFront + WAF + Shield
 - [x] Compute chosen (ADR-011: EKS; Lambda only for glue), service stack and service mesh
 - [x] Resilience patterns mapped to quality attributes
 - [x] Transfer Saga with compensation, timeout handling and incoming payments
-- [ ] Draw `05-Dynamic-Transfer-Interbank` in Structurizr (Step 17)
+- [x] Draw `05-Dynamic-Transfer-Interbank` in Structurizr (Step 17)
 - [ ] **Your review:** check whether BP connects to the RPI directly or through a private payment network, and the timeout values in the BCE technical catalogue
 
 ---

@@ -179,4 +179,4 @@ The 3 base services from the statement map to: **basic data → Customer Profile
 - [x] First cut of sync vs async communication
 - [x] Every requirement traced to a service
 - [ ] **Your review:** check that no service is too small to justify on its own (guardrail in ADR-004)
-- [ ] Add the containers to `workspace.dsl` (can wait until Step 17)
+- [x] Add the containers to `workspace.dsl` (done in Step 17)

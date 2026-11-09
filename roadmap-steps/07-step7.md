@@ -201,8 +201,9 @@ Onboarding is low volume compared with transactions: even 50,000 new digital cus
 - [x] Hand-off to the Core, the identity provider and device binding
 - [x] Biometric data storage and retention defined (no templates kept)
 - [x] Onboarding threats and controls
-- [ ] Draw `05-Dynamic-Onboarding` in Structurizr (Step 17)
-- [ ] **Your review:** check the iBeta confirmation letters of the shortlisted vendors and the technical integration method of SNIC (the gob.ec page doesn't say it's a web service)
+- [x] Draw `05-Dynamic-Onboarding` in Structurizr (Step 17)
+- [x] Check the iBeta confirmation letters of the shortlisted vendors: both Level 2. FacePhi SelphID 3.3.0.78 ([iBeta letter, Mar 2022](https://www.ibeta.com/wp-content/uploads/2022/03/220303-FacePhi-PAD-Level-2-Confirmation-Letter.pdf)); Jumio Liveness PAD SDK 5.11.0 ([Jumio, Oct 2025](https://www.jumio.com/about/press-releases/iso-iec-level-2-compliance/)). The PoC must use the tested SDK version or ask for a re-test.
+- [ ] **Your review:** confirm the technical integration method of SNIC (the gob.ec page doesn't say it's a web service)
 
 ---
 

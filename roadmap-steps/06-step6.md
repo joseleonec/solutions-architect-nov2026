@@ -11,7 +11,7 @@
 | Deprecated grants | **Implicit** and **Resource Owner Password Credentials** must not be used. Tokens in the URL leak; ROPC exposes the password to the client and can't do MFA. | RFC 9700 (OAuth 2.0 Security BCP, Jan 2025) |
 | Public clients | Authorization Code + **PKCE** (S256) for every client, including confidential ones. | RFC 7636, RFC 9700 |
 | Native apps | Log in through the **system browser** (ASWebAuthenticationSession / Custom Tabs), never an embedded WebView. Claimed HTTPS redirects (Universal / App Links). | RFC 8252 |
-| Browser apps | Prefer a **BFF**: tokens stay on the server, the browser gets an HttpOnly cookie. | OAuth 2.0 for Browser-Based Apps (IETF BCP) |
+| Browser apps | Prefer a **BFF**: tokens stay on the server, the browser gets an HttpOnly cookie. | OAuth 2.0 for Browser-Based Applications (RFC 10017 / BCP 212) |
 | Financial-grade APIs | **FAPI 2.0 Security Profile**: PAR, PKCE, **sender-constrained tokens** (DPoP or mTLS), strong client authentication (`private_key_jwt` or mTLS), short-lived tokens. | OpenID FAPI 2.0 (final, 2025) |
 | Pushed authorization requests | The authorization request is sent server-to-server first, so parameters can't be tampered with in the browser. | RFC 9126 (PAR) |
 | Proof of possession | **DPoP**: each request carries a proof signed with the client's private key. A stolen token is useless without the key. | RFC 9449 |
@@ -242,7 +242,7 @@ The product is provided by the bank (A-12). These are the capabilities this desi
 - [x] Token lifetimes, binding and rotation defined
 - [x] Gateway and service-level authorization defined
 - [x] Identity product capabilities and candidate products listed
-- [ ] Draw the flows as Structurizr `dynamic` views in Step 17 (`05-Dynamic-Login-Web`, `05-Dynamic-Login-Biometric`, `05-Dynamic-StepUp-Transfer`)
+- [x] Draw the flows as Structurizr `dynamic` views in Step 17 (`05-Dynamic-Login-Web`, `05-Dynamic-Login-Biometric`, `05-Dynamic-StepUp-Transfer`)
 - [ ] **Your review:** check the current FAPI / DPoP support of the product you think the bank uses
 
 ---
