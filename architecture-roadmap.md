@@ -102,7 +102,7 @@ A step-by-step guide to research and build the proposal yourself. It doesn't giv
 **Investigate**
 
 - OAuth 2.0 grant types and which ones are now **deprecated** (Implicit, Resource Owner Password).
-- Authorization Code + **PKCE**. Read RFC 7636, RFC 8252 (OAuth for native apps), RFC 9700 (OAuth 2.0 Security Best Current Practice), and the "OAuth 2.0 for Browser-Based Apps" draft.
+- Authorization Code + **PKCE**. Read RFC 7636, RFC 8252 (OAuth for native apps), RFC 9700 (OAuth 2.0 Security Best Current Practice), and "OAuth 2.0 for Browser-Based Applications" (published as RFC 10017 / BCP 212 in Aug 2026).
 - OpenID Connect, ID token vs access token, refresh token rotation, token lifetimes, and where tokens are stored (BFF / token-handler pattern for the SPA).
 - **FAPI 2.0** (Financial-grade API) profile: PAR, DPoP or mTLS-bound tokens.
 - **Step-up authentication** and MFA for sensitive operations like transfers. Look at transaction signing and dynamic linking (PSD2 SCA as a reference).
@@ -262,6 +262,8 @@ A step-by-step guide to research and build the proposal yourself. It doesn't giv
 
 **Output:** a rough monthly cost estimate table and cost-optimization decisions.
 
+**Follow-up (Step 16b):** check the main unit prices against the public AWS Price List and record how to reproduce each figure ([16b-cost-validation.md](roadmap-steps/16b-cost-validation.md)).
+
 ---
 
 ## Step 17: Draw the C4 diagrams
@@ -269,7 +271,7 @@ A step-by-step guide to research and build the proposal yourself. It doesn't giv
 1. **Context:** BP Internet Banking in the centre. Actors: customer, new customer. External systems: Core, complementary customer system, OAuth/identity, biometric/KYC, notification providers, interbank network. Plain language.
 2. **Containers:** SPA, mobile app, CDN/WAF, API Gateway, BFFs, each microservice, databases, cache, message broker, audit store, identity provider. Label the protocols.
 3. **Components:** go inside the key containers (for example, the transfer service and the integration layer). Show patterns (Saga, Outbox, Circuit Breaker, ACL), security (JWT validation, mTLS) and cloud services.
-4. **Supporting diagrams:** infrastructure/deployment, authentication sequence, onboarding sequence, transfer sequence.
+4. **Supporting diagrams:** infrastructure/deployment, authentication sequences (web login, biometric login, step-up), onboarding sequence, transfer sequence.
 
 Check that every element in a diagram is explained somewhere in the text.
 
@@ -286,8 +288,9 @@ Suggested structure:
 5. Detailed designs: front-end, authentication, onboarding, integration, data, audit, notifications
 6. Non-functional design: security, HA/DR, monitoring, operations
 7. Cost estimate
-8. ADRs (decision log with alternatives and 2+ justifications each)
-9. Risks and future evolution
+8. Delivery plan: stages, decision gates and technical debt (Step 19, [19-delivery-plan.md](roadmap-steps/19-delivery-plan.md))
+9. ADRs (decision log with alternatives and 2+ justifications each)
+10. Risks and future evolution
 
 **Final review:** go through the checklist in [assessment-statement.md](assessment-statement.md#6-checklist-de-cobertura) and the 15 grading criteria. Then upload the PDF to CoderPad and to a public GitHub repository, and put the repository URL in the comment.
 
