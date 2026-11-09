@@ -518,6 +518,7 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
                     s3a = deploymentNode "Log archive account" "S3 Object Lock, compliance mode." "Amazon S3" {
                         archive1 = containerInstance bp.auditArchive primary
                     }
+                    obs1 = infrastructureNode "Observability" "ADOT collectors (DaemonSet) receive OTLP from every pod: metrics to Amazon Managed Prometheus, traces to X-Ray / Application Signals, logs to CloudWatch Logs (PII redacted, tail sampling). Amazon Managed Grafana for SLO dashboards and burn-rate alerts to PagerDuty; CloudWatch Synthetics canaries plus external probes from Ecuador; security findings to Security Lake and the bank SIEM (ADR-019)." "ADOT, Amazon Managed Prometheus, Managed Grafana, CloudWatch, X-Ray"
                 }
 
                 use2 = deploymentNode "us-east-2 (warm standby)" "DR region: data replicated, T1 compute at ~25-30%." "AWS Region" "Standby" {
@@ -574,6 +575,7 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
                     s3b = deploymentNode "Log archive replica" "Cross-Region Replication with Object Lock." "Amazon S3" "Standby" {
                         archive2 = containerInstance bp.auditArchive standby
                     }
+                    obs2 = infrastructureNode "Observability (standby)" "Same ADOT, Prometheus, Grafana and CloudWatch stack, already running so the DR region is monitored before and during a failover; dashboards and alerts deployed by GitOps." "ADOT, Amazon Managed Prometheus, Managed Grafana, CloudWatch, X-Ray" "Standby"
                 }
 
                 replication = infrastructureNode "Cross-region replication" "Managed, asynchronous replication us-east-1 to us-east-2 (RPO < 1 min)." "AWS managed replication"
@@ -606,6 +608,8 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
             aws.use1.eks1.payments.coreAdapter1 -> aws.dx "Reaches the Core through" "REST / SOAP" "Infra"
             aws.use2.eks2.payments.coreAdapter2 -> aws.dx "Reaches the Core through" "REST / SOAP" "Infra"
             aws.dx -> onprem.coreInst "Connects to" "Direct Connect (MACsec / IPsec)" "Infra"
+            aws.use1.eks1.platform.gateway1 -> aws.use1.obs1 "All pods send metrics, traces and logs to" "OTLP" "Infra"
+            aws.use2.eks2.platform.gateway2 -> aws.use2.obs2 "All pods send metrics, traces and logs to" "OTLP" "Infra"
         }
     }
 
@@ -920,6 +924,33 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
             autolayout lr
         }
 
+        dynamic bp "05-Dynamic-StepUp-Transfer" "Step-up with dynamic linking: a transfer to a new beneficiary over the threshold needs a fresh acr:3 confirmation bound to amount and beneficiary (RFC 9470 + RFC 9396). A stolen acr:2 token can't move this money (Step 6, ADR-007)." {
+            customer -> bp.mobile "Requests transfer to a new beneficiary above the threshold"
+            bp.mobile -> bp.edge "POST /v1/transfers (Idempotency-Key, DPoP, acr:2 token)"
+            bp.edge -> bp.gateway "Forwards"
+            bp.gateway -> bp.mobileBff "Routes after JWT and DPoP checks (route allows acr:2)"
+            bp.mobileBff -> bp.transfer "Submits transfer"
+            bp.transfer -> bp.beneficiary "New beneficiary, amount above threshold"
+            bp.transfer -> bp.risk "Gets risk decision (step-up)"
+            bp.transfer -> bp.mobileBff "Rejects: insufficient_user_authentication, acr_values=3 (RFC 9470)"
+            bp.edge -> bp.mobile "Returns 401 with the step-up challenge"
+            bp.mobile -> identity "Re-authorizes: PAR with authorization_details (amount, beneficiary; RFC 9396), acr:3"
+            customer -> bp.mobile "Reviews amount and beneficiary; approves with biometrics (device key signs)"
+            identity -> bp.mobile "Issues 2-minute, single-use, DPoP-bound token for this transaction only"
+            bp.mobile -> bp.edge "Retries POST with the new token (same Idempotency-Key)"
+            bp.edge -> bp.gateway "Forwards"
+            bp.gateway -> bp.mobileBff "Routes after acr:3 check"
+            bp.mobileBff -> bp.transfer "Submits transfer"
+            bp.transfer -> bp.beneficiary "Registers beneficiary; cooling-period limit applies"
+            bp.transfer -> bp.coreAdapter "Debits within the cooling-period limit"
+            bp.coreAdapter -> core "Posts"
+            bp.transfer -> bp.broker "Publishes TransferDebited (outbox)"
+            bp.notification -> bp.broker "Consumes TransferDebited and BeneficiaryAdded"
+            bp.notification -> smsA "Sends SMS notice"
+            bp.notification -> email "Sends email notice (in parallel)"
+            autolayout lr
+        }
+
         // ---------- Deployment ----------
         deployment bp prod "04-Deployment-Production" "Production on AWS: us-east-1 primary (3 AZs), us-east-2 warm standby, hybrid link to the on-premises Core (Steps 3 and 13). One representative element per platform service; node descriptions list everything deployed there. Service-to-service calls are in the container views." {
             include prod.device.phone.mobileInst prod.device.browser.spaInst
@@ -929,6 +960,7 @@ workspace "BP Internet Banking" "Online and mobile banking platform for Banco Pi
             include prod.aws.use2.nlb2 prod.aws.use2.eks2.platform.gateway2 prod.aws.use2.eks2.payments.coreAdapter2
             include prod.aws.use2.aurora2.transferDb2 prod.aws.use2.dynamo2.movementsDb2 prod.aws.use2.redis2.cache2 prod.aws.use2.msk2.broker2 prod.aws.use2.s3b.archive2
             include prod.aws.replication prod.aws.dx prod.onprem.coreInst prod.onprem.customerInfoInst prod.onprem.identityInst
+            include prod.aws.use1.obs1 prod.aws.use2.obs2
             exclude "relationship.tag==Relationship"
             include "relationship.tag==Infra"
             autolayout lr 200 100
