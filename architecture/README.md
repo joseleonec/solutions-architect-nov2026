@@ -19,11 +19,12 @@ The whole model lives in one Structurizr DSL file, [workspace.dsl](workspace.dsl
 | `03-Components-Accounts` | Components | Engineers | Frequent-client persistence: cache-aside, refresh-ahead, event-driven invalidation and classification |
 | `03-Components-Notification` | Components | Engineers | Policy, templates, priority lanes, SMS failover, delivery tracking |
 | `03-Components-Audit` | Components | Engineers, compliance | Ingestion (validate, tokenize, hash-chain) → storage (WORM archive, hot index) → query and integrity |
-| `04-Deployment-Production` | Deployment | Architects, operations, security | us-east-1 primary (3 AZs), us-east-2 warm standby, replication, Direct Connect, on-premises systems |
+| `04-Deployment-Production` | Deployment | Architects, operations, security | us-east-1 primary (3 AZs), us-east-2 warm standby, replication, Direct Connect, observability stack per region, on-premises systems |
 | `05-Dynamic-Login-Web` | Dynamic | Everyone | Web login: Code + PKCE + PAR through the Web BFF |
 | `05-Dynamic-Login-Biometric` | Dynamic | Everyone | Mobile biometric login with a device-bound DPoP key; pre-built dashboard |
 | `05-Dynamic-Onboarding` | Dynamic | Everyone | Onboarding Saga with facial recognition |
 | `05-Dynamic-Transfer-Interbank` | Dynamic | Everyone | Interbank transfer: debit, pacs.008, pacs.002, notifications, audit |
+| `05-Dynamic-StepUp-Transfer` | Dynamic | Everyone, security | Step-up with dynamic linking: `insufficient_user_authentication`, re-authorization with amount and beneficiary, single-use `acr:3` token, idempotent retry |
 
 The code level (C4 level 4) is not drawn: the exercise asks for components. A system landscape view isn't needed because the design covers one system.
 
