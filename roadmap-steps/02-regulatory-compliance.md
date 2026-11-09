@@ -189,7 +189,7 @@
 - [ ] **Your review:** check the current SB codified text (post-2023) for article numbers
 - [ ] **Your review:** confirm AML record retention (10 years) in the official law text
   - Finding (8 Nov 2026): the 2016 AML law (RO 802, 2nd Suppl., 21 Jul 2016) requires financial obligated entities to keep records **ten years** after the last transaction or contractual relationship. The retention article of the 2024 law (RO 610) and its 2026 regulation (RO 216) was not found in public summaries, so this item stays open for Legal.
-- [x] Apply the section 5 updates to [00-step0.md](00-step0.md)
+- [x] Apply the section 5 updates to [00-problem-framing.md](00-problem-framing.md)
 
 ---
 
