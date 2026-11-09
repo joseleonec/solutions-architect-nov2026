@@ -6,14 +6,15 @@ Solution Architect practical exercise: architecture for BP's (Banco Pichincha, E
 
 ## Deliverable
 
-- **[docs/BP-Banca-por-Internet-Arquitectura.pdf](docs/BP-Banca-por-Internet-Arquitectura.pdf)**: the main deliverable, in Spanish. Executive summary, scope and business processes, regulation, C4 diagrams (context, containers, components, deployment, dynamic), detailed designs, security, resilience, monitoring, operations, cost, delivery plan and decision log.
+- **[BP-Banca-por-Internet-Arquitectura.pdf](BP-Banca-por-Internet-Arquitectura.pdf)**: the main deliverable, in Spanish. Executive summary, scope and business processes, regulation, C4 diagrams (context, containers, components, deployment, dynamic), detailed designs, security, resilience, monitoring, operations, cost, delivery plan and decision log.
 - **[docs/BP-Internet-Banking-Solution-Architecture.pdf](docs/BP-Internet-Banking-Solution-Architecture.pdf)**: the extended English version with every design in full detail.
 
 ## Repository contents
 
 | Path | What it holds |
 | --- | --- |
-| [docs/](docs/) | The PDFs and their Markdown sources |
+| [BP-Banca-por-Internet-Arquitectura.pdf](BP-Banca-por-Internet-Arquitectura.pdf) | The main deliverable (Spanish PDF) |
+| [docs/](docs/) | The extended English PDF and the Markdown sources of both PDFs |
 | [architecture/workspace.dsl](architecture/workspace.dsl) | The single C4 model (Structurizr DSL); every diagram is generated from it |
 | [architecture/.structurizr/1/images/](architecture/.structurizr/1/images/) | Rendered diagrams: high-resolution PNG, SVG and a legend per view |
 | [architecture/README.md](architecture/README.md) | Diagram list, audiences, C4 conventions and how to render |

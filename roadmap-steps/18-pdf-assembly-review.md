@@ -4,7 +4,7 @@
 
 | File | What |
 | --- | --- |
-| [docs/BP-Banca-por-Internet-Arquitectura.pdf](../docs/BP-Banca-por-Internet-Arquitectura.pdf) | **Main deliverable, Spanish** (A4, 34 pages, condensed; vector diagrams) |
+| [BP-Banca-por-Internet-Arquitectura.pdf](../BP-Banca-por-Internet-Arquitectura.pdf) | **Main deliverable, Spanish** (A4, 34 pages, condensed; vector diagrams) |
 | [docs/BP-Internet-Banking-Solution-Architecture.pdf](../docs/BP-Internet-Banking-Solution-Architecture.pdf) | Extended English version (A4, 52 pages, every design in full) |
 | [docs/BP-Internet-Banking-Solution-Architecture.md](../docs/BP-Internet-Banking-Solution-Architecture.md) | Source of the PDF |
 | [architecture/workspace.dsl](../architecture/workspace.dsl) | C4 model (single source for all diagrams) |
@@ -16,7 +16,7 @@ Structure follows the roadmap: executive summary → requirements and assumption
 ## 2. How the PDF is rebuilt
 
 1. Start Structurizr locally (Step 1 command) and re-export the views (PNG + SVG) after any model change.
-2. Render the markdown to PDF with headless Chrome (A4, landscape pages for wide diagrams, page numbers). The scripts used live outside the repo; any Markdown → PDF tool works if it keeps the SVG images.
+2. Render the markdown to PDF with headless Chrome (A4, landscape pages for wide diagrams, page numbers). The Spanish PDF goes to the repository root, the English one to `docs/`. The scripts used live outside the repo; any Markdown → PDF tool works if it keeps the SVG images.
 
 ## 3. Final review against the statement
 
