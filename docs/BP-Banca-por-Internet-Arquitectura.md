@@ -73,7 +73,7 @@ Los clientes esperan resolver su banca desde el celular o la computadora, a cual
 
 | Tema | Decisión | Por qué |
 | --- | --- | --- |
-| Nube y regiones | **AWS**: us-east-1 (3 zonas) y espera en caliente en us-east-2; enlace híbrido al Core con 2 Direct Connect + VPN | Menor latencia medida desde Ecuador entre las regiones de AWS (~90 ms); servicios gestionados multi-región para RPO/RTO |
+| Nube y regiones | **AWS**: us-east-1 (3 zonas) y espera en caliente en us-east-2; enlace híbrido al Core con 2 Direct Connect + VPN | ~90–103 ms medidos desde Ecuador; ninguna región de Azure resultó más rápida; servicios gestionados multi-región para RPO/RTO |
 | Estilo | **Microservicios por contexto acotado** (14 servicios), BFF por canal, eventos | Escalado y aislamiento de fallas independientes; desacople y reutilización |
 | Web y móvil | **Angular** con BFF (sin tokens en el navegador); **Flutter** (comparado con React Native) | Seguridad por defecto; binario más difícil de alterar; UI idéntica en todos los equipos |
 | Autenticación | **Authorization Code + PKCE + PAR**, perfil **FAPI 2.0**, tokens **DPoP**; ingreso biométrico con **llave del dispositivo**; paso adicional con vinculación dinámica | Un token robado no sirve; la biometría no sale del teléfono |
@@ -157,7 +157,7 @@ Seis contenedores, agrupados en **capas** (API → negocio → integración y da
 
 ### 4.4 Infraestructura y despliegue
 
-<div class="figure"><p class="caption">Figura 4.4 – Producción en AWS: us-east-1 primaria (3 zonas), us-east-2 en espera, enlace híbrido al Core</p><img src="../architecture/.structurizr/1/images/04-Deployment-Production.svg" alt="Despliegue"/><p class="note"><em>Cómo leerlo.</em> Un elemento representativo por servicio de plataforma; las descripciones de los nodos listan todo lo desplegado. Datos replicados de forma continua a us-east-2 (Aurora Global Database, DynamoDB global tables, Global Datastore, MSK Replicator, S3 CRR); el Core se alcanza por Direct Connect. Latencia medida desde Cuenca: us-east-1 ~90 ms, us-east-2 ~103 ms, São Paulo ~157 ms. Azure no se midió: sus regiones del este de EE. UU. están en las mismas ciudades que las de AWS; Azure Chile Central es la incógnita y debe medirse antes de cerrar la decisión.</p></div>
+<div class="figure"><p class="caption">Figura 4.4 – Producción en AWS: us-east-1 primaria (3 zonas), us-east-2 en espera, enlace híbrido al Core</p><img src="../architecture/.structurizr/1/images/04-Deployment-Production.svg" alt="Despliegue"/><p class="note"><em>Cómo leerlo.</em> Un elemento representativo por servicio de plataforma; las descripciones de los nodos listan todo lo desplegado. Datos replicados de forma continua a us-east-2 (Aurora Global Database, DynamoDB global tables, Global Datastore, MSK Replicator, S3 CRR); el Core se alcanza por Direct Connect. Cada región tiene su propia pila de <b>observabilidad</b> (colectores ADOT, Prometheus y Grafana gestionados, CloudWatch, X-Ray), así la región de respaldo ya está vigilada cuando empieza una conmutación. Latencia medida desde Cuenca: us-east-1 ~90 ms, us-east-2 ~103 ms, São Paulo ~157 ms. En una segunda medición de ambas nubes: AWS us-east-1 ~103 ms; Azure East US ~109 ms, México Central ~124 ms y <b>Chile Central ~178 ms</b> (el tráfico igual pasa por EE. UU.). La latencia no favorece a Azure.</p></div>
 
 ### 4.5 Diagramas dinámicos
 
@@ -168,6 +168,8 @@ Seis contenedores, agrupados en **capas** (API → negocio → integración y da
 <div class="figure landscape"><p class="caption">Figura 4.5c – Saga de onboarding con reconocimiento facial</p><img src="../architecture/.structurizr/1/images/05-Dynamic-Onboarding.svg" alt="Onboarding dinámico"/></div>
 
 <div class="figure landscape"><p class="caption">Figura 4.5d – Transferencia interbancaria en tiempo real</p><img src="../architecture/.structurizr/1/images/05-Dynamic-Transfer-Interbank.svg" alt="Transferencia"/></div>
+
+<div class="figure landscape"><p class="caption">Figura 4.5e – Paso adicional con vinculación dinámica para transferir a un beneficiario nuevo (RFC 9470 + RFC 9396)</p><img src="../architecture/.structurizr/1/images/05-Dynamic-StepUp-Transfer.svg" alt="Paso adicional"/><p class="note"><em>Cómo leerlo.</em> La primera solicitud lleva un token <code>acr:2</code>, así que Transfer responde <code>insufficient_user_authentication</code>. La app vuelve a autorizar con el monto y el beneficiario en <code>authorization_details</code>; el cliente aprueba con biometría y el producto de identidad emite un token de 2 minutos, de un solo uso y válido solo para esa transacción. El reintento usa la misma clave de idempotencia: nunca hay doble débito.</p></div>
 
 <div class="pb"></div>
 
@@ -194,7 +196,7 @@ Seis contenedores, agrupados en **capas** (API → negocio → integración y da
 | --- | --- |
 | Ver saldos y movimientos; transferir entre cuentas propias | Llave del dispositivo con biometría (móvil) o clave + OTP (web) |
 | Transferir a un beneficiario registrado bajo el umbral | Igual que arriba |
-| Monto sobre el umbral o beneficiario nuevo | **Paso adicional ligado a la transacción** (monto y beneficiario: RFC 9470 + 9396) con firma biométrica en la app o TOTP, y periodo de espera para beneficiarios nuevos |
+| Monto sobre el umbral o beneficiario nuevo | **Paso adicional ligado a la transacción** (monto y beneficiario: RFC 9470 + 9396) con firma biométrica en la app o TOTP, y periodo de espera para beneficiarios nuevos (Figura 4.5e) |
 | Cambiar dispositivo, clave o contacto; recuperar la cuenta | Clave + OTP **y** reverificación facial con prueba de vida (+ Registro Civil); aviso al contacto anterior y al nuevo |
 
 Reglas de la SB: bloqueo tras 3 intentos con aviso inmediato, aviso de cada ingreso, fecha del último ingreso, cierre por inactividad. **Autorización:** el gateway valida firma, emisor, audiencia, vigencia, **prueba DPoP**, alcances y nivel mínimo por ruta; cada servicio verifica que la cuenta pertenezca a quien llama (OWASP API1); entre servicios, mTLS.
@@ -203,7 +205,7 @@ Reglas de la SB: bloqueo tras 3 intentos con aviso inmediato, aviso de cada ingr
 
 Verificaciones: autenticidad de la cédula → **prueba de vida** (iBeta PAD nivel 2, ISO/IEC 30107-3) y defensa contra inyección → **coincidencia facial** con el documento → **Registro Civil (SNIC)** demográfico + biométrico (US$ 0,30 por consulta) → mayoría de edad → **screening PEP / sanciones / UAFE** → OTP de teléfono y correo → **consentimiento** explícito.
 
-**Proveedor:** se compra una plataforma eKYC especializada (prueba de concepto con **FacePhi**, que ya valida contra el Registro Civil de Ecuador, y **Jumio** como alternativa) en lugar de construir sobre servicios de rostro genéricos, que no verifican la cédula. El banco mantiene su propio contrato con el Registro Civil. **Componentes (Figura 4.3c):** atestación del dispositivo, **webhook firmado** con protección contra repetición, máquina de estados, motor de decisión, **revisión de cuatro ojos**, creación del usuario con `kyc_level=verified`. **Datos biométricos:** imágenes eliminadas tras la decisión, **sin plantillas faciales almacenadas**, evidencia y consentimiento en el archivo inmutable, evaluación de impacto anual, nunca decisiones solo automatizadas, sin menores.
+**Proveedor:** se compra una plataforma eKYC especializada (prueba de concepto con **FacePhi**, que ya valida contra el Registro Civil de Ecuador, y **Jumio** como alternativa; ambos tienen carta de conformidad **iBeta ISO/IEC 30107-3 nivel 2**) en lugar de construir sobre servicios de rostro genéricos, que no verifican la cédula. El banco mantiene su propio contrato con el Registro Civil. **Componentes (Figura 4.3c):** atestación del dispositivo, **webhook firmado** con protección contra repetición, máquina de estados, motor de decisión, **revisión de cuatro ojos**, creación del usuario con `kyc_level=verified`. **Datos biométricos:** imágenes eliminadas tras la decisión, **sin plantillas faciales almacenadas**, evidencia y consentimiento en el archivo inmutable, evaluación de impacto anual, nunca decisiones solo automatizadas, sin menores.
 
 ## 8. Capa de integración y transferencias
 
@@ -310,12 +312,12 @@ Contratos primero (OpenAPI, esquemas de Kafka), enrutamiento por ruta o cohorte 
 
 ## 17. Registro de decisiones
 
-Cada decisión tiene al menos dos justificaciones y las alternativas evaluadas; el texto completo está en las notas del repositorio (`roadmap-steps/`).
+Cada decisión tiene al menos dos justificaciones y las alternativas evaluadas; el texto completo está en las notas del repositorio (`roadmap-steps/`). **Estado:** la ADR-001 (herramienta de diagramas) está *aceptada*; de la 002 a la 022 están *propuestas*: recomendadas por el arquitecto y pendientes de aprobación por el comité de arquitectura de BP. La ADR-008 además depende de la prueba de concepto del proveedor.
 
 | ADR | Decisión | Alternativas descartadas | Justificaciones |
 | --- | --- | --- | --- |
 | 001 | Structurizr DSL para C4 | draw.io, C4-PlantUML, IcePanel | Un modelo → vistas coherentes; diagramas como código en Git |
-| 002 | AWS | Azure | Menor latencia entre las regiones de AWS medidas (~90 ms; Azure Chile Central sin medir); servicios multi-región gestionados para RPO/RTO |
+| 002 | AWS | Azure | Latencia igual o mejor que Azure (misma medición: us-east-1 ~103 ms frente a Azure East US ~109 ms y Chile Central ~178 ms); servicios multi-región gestionados para RPO/RTO |
 | 003 | us-east-1 primaria, us-east-2 DR | São Paulo; us-east-1 + sa-east-1; una sola región | Latencia; región de DR con riesgos distintos (SB) y ~103 ms |
 | 004 | Microservicios por contexto (gruesos) | Monolito modular; microservicios finos | Escalado independiente; aislamiento de fallas; límites de datos por norma |
 | 005 | Angular | React, Vue | Framework completo; seguro por defecto; soporte predecible |
@@ -350,7 +352,7 @@ Cada decisión tiene al menos dos justificaciones y las alternativas evaluadas; 
 | Precisión del eKYC con cédulas reales y teléfonos de gama baja; SDK Flutter | Prueba de concepto antes de contratar; proveedor alterno tras el adaptador | Producto, Compras |
 | Investigación por filtración de datos biométricos del Registro Civil (2026) | La coincidencia con el registro siempre se combina con prueba de vida en el momento | Fraude, Cumplimiento |
 | Detalles normativos (artículos SB, retención UAFE, artículos JPRF, estándares de ciberseguridad) | Revisión legal antes de producción | Legal, Cumplimiento |
-| Regiones de nube más cercanas: **Azure Chile Central ya existe pero no se midió**; la región de AWS en Chile está anunciada, aún no abierta | Medir Azure Chile Central desde Quito, Guayaquil y Cuenca; reevaluar cuando abra AWS Chile (el diseño portable permite moverse) | Arquitectura |
+| Regiones de nube más cercanas: Azure Chile Central resultó más lenta (~178 ms, pasa por EE. UU.); la región de AWS en Chile está anunciada para fines de 2026, aún no abierta | Volver a medir desde Quito y Guayaquil y cuando abra AWS Chile; el diseño portable permite moverse | Arquitectura |
 | Habilidades del equipo (Flutter, Kubernetes, Kafka) | Equipo de plataforma, plantillas de servicio (*golden paths*), capacitación | Gerencia de ingeniería |
 
 ## 19. Trazabilidad con los criterios de evaluación
@@ -358,7 +360,7 @@ Cada decisión tiene al menos dos justificaciones y las alternativas evaluadas; 
 | Criterio | Dónde |
 | --- | --- |
 | 1. Requisitos cumplidos y justificados | §1, §2, §17 (22 decisiones con ≥ 2 justificaciones) |
-| 2. Calidad y profundidad de los diagramas | §4 (contexto, 5 vistas de contenedores, 6 de componentes por capas, despliegue, 4 dinámicos) |
+| 2. Calidad y profundidad de los diagramas | §4 (contexto, 5 vistas de contenedores, 6 de componentes por capas, despliegue, 5 dinámicos) |
 | 3. Segmentación de responsabilidades y desacople | §4, §8 |
 | 4. Patrones de arquitectura | §8, §9, §10, §11 |
 | 5. Integración con servicios externos | §7, §8, §11 |
@@ -366,7 +368,7 @@ Cada decisión tiene al menos dos justificaciones y las alternativas evaluadas; 
 | 7. Acceso a datos | §9 |
 | 8. Nube (AWS) | §4.4, §8, §13 |
 | 9. Costos | §15, §16 |
-| 10. Autenticación | §6 |
+| 10. Autenticación | §6, Figuras 4.5a, 4.5b y 4.5e |
 | 11. Integración del onboarding | §7, Figuras 4.3c y 4.5c |
 | 12. Auditoría | §10, Figura 4.3f |
 | 13. Regulación y estándares de seguridad | §3, §12 |

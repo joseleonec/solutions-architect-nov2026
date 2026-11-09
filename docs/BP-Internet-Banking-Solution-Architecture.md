@@ -78,7 +78,7 @@ BP (assumed to be **Banco Pichincha**, the largest private bank in Ecuador, ~6.5
 
 | Area | Decision |
 | --- | --- |
-| Cloud | **AWS**, primary **us-east-1** (lowest AWS latency measured from Ecuador, ~90 ms), **warm standby in us-east-2**; hybrid link to the on-premises Core with 2 Direct Connect links + VPN |
+| Cloud | **AWS**, primary **us-east-1** (~90–103 ms measured from Ecuador; no Azure region measured faster), **warm standby in us-east-2**; hybrid link to the on-premises Core with 2 Direct Connect links + VPN |
 | Architecture style | **Microservices by bounded context** (14 domain services, coarse-grained), BFF per channel, event-driven support services |
 | Front-end | **Angular** SPA (no tokens in the browser, BFF token handler) and **Flutter** mobile app (compared with React Native) |
 | Authentication | OAuth 2.0 **Authorization Code + PKCE + PAR**, **FAPI 2.0** profile, **DPoP** sender-constrained tokens; biometric login through a **device-bound key** in the Secure Enclave / StrongBox; **step-up with dynamic linking** for transfers to new beneficiaries |
@@ -194,7 +194,7 @@ All decisions are recorded as **22 ADRs** (section 18), each with the alternativ
 
 **Hosting abroad.** The SPDP's 2026 norm on data transfers (R6) treats a cloud provider acting as **processor** as not an international transfer. The design follows it but applies the stricter safeguards anyway: a processing agreement with contract-clause protections, **bank-managed keys** (KMS / CloudHSM), an entry in the processing register and a privacy notice disclosing hosting abroad. If Legal requires more, the fallback is a **hybrid option** that keeps biometric evidence and KYC documents in Ecuador.
 
-> Article numbers of the SB norm should be checked against the current consolidated text (the chapter was replaced in 2023); the 10-year AML retention should be confirmed in the UAFE regulation.
+> Article numbers of the SB norm should be checked against the current consolidated text (the chapter was replaced in 2023); the 10-year AML retention comes from the 2016 AML law (records kept ten years after the last transaction or relationship) and should be confirmed in the 2024 law and its 2026 regulation, which replaced it.
 
 ## 4. Architecture overview and C4 diagrams
 
@@ -265,13 +265,13 @@ The full container view is in the repository ([02-Containers.svg](../architectur
 
 Six containers are opened, chosen because they hold the patterns the statement asks about. Components are grouped in **layers** (API → business → integration and data). **Security boundaries** are the same in every view: (1) internet → gateway: TLS, WAF, JWT + DPoP; (2) gateway → service: mTLS on a private network, user identity forwarded in the token; (3) service → data and external systems: private endpoints, per-service IAM roles, no secrets in code, timeouts on every call.
 
-<div class="figure landscape"><p class="caption">Figure 4.4a – API Gateway: plugin chain (token, DPoP, acr checks before routing)</p><img src="../architecture/.structurizr/1/images/03-Components-Gateway.svg" alt="Components: gateway"/><p class="note"><em>How to read it.</em> Every request passes the plugins in order: rate limit, JWT, DPoP proof, route policy (scope and minimum `acr`), revocation list, then the router sends it to a BFF or, for staff routes, to the review, audit or operations APIs. The access logger publishes one audit record per call.</p></div>
+<div class="figure landscape"><p class="caption">Figure 4.4a – API Gateway: plugin chain (token, DPoP, acr checks before routing)</p><img src="../architecture/.structurizr/1/images/03-Components-Gateway.svg" alt="Components: gateway"/><p class="note"><em>How to read it.</em> Every request passes the plugins in order: rate limit, JWT, DPoP proof, route policy (scope and minimum <code>acr</code>), revocation list, then the router sends it to a BFF or, for staff routes, to the review, audit or operations APIs. The access logger publishes one audit record per call.</p></div>
 
-<div class="figure landscape"><p class="caption">Figure 4.4b – Transfer Service: idempotency, step-up, Saga orchestrator, circuit-broken Core client, transactional outbox and inbox</p><img src="../architecture/.structurizr/1/images/03-Components-Transfer.svg" alt="Components: transfer"/><p class="note"><em>How to read it.</em> Three layers. API: authorization (scope, ownership, step-up for new beneficiaries or high amounts) and idempotency; `202 Accepted` with a status URL for interbank transfers. Business: orchestrated Saga with a compensation handler and a reconciliation job against the Core and the interbank settlement reports; unresolved cases go to staff through the Operations Case API. Integration and data: repository with transactional outbox and circuit-broken clients to the Core Adapter, Limits and Risk.</p></div>
+<div class="figure landscape"><p class="caption">Figure 4.4b – Transfer Service: idempotency, step-up, Saga orchestrator, circuit-broken Core client, transactional outbox and inbox</p><img src="../architecture/.structurizr/1/images/03-Components-Transfer.svg" alt="Components: transfer"/><p class="note"><em>How to read it.</em> Three layers. API: authorization (scope, ownership, step-up for new beneficiaries or high amounts) and idempotency; <code>202 Accepted</code> with a status URL for interbank transfers. Business: orchestrated Saga with a compensation handler and a reconciliation job against the Core and the interbank settlement reports; unresolved cases go to staff through the Operations Case API. Integration and data: repository with transactional outbox and circuit-broken clients to the Core Adapter, Limits and Risk.</p></div>
 
-<div class="figure"><p class="caption">Figure 4.4b′ – Onboarding Service: device attestation, signed vendor webhook, state machine, decision engine, four-eyes manual review</p><img src="../architecture/.structurizr/1/images/03-Components-Onboarding.svg" alt="Components: onboarding"/><p class="note"><em>How to read it.</em> The vendor's result is never taken from the app: it arrives through an **HMAC-signed webhook** (or is polled if the webhook is lost) and is combined with the Registro Civil match and the screening result. A state machine decides approve, review or reject; doubtful cases and all rejections go to the four-eyes review in the Back-office Portal. On approval the user is created in the identity product with `kyc_level=verified`. Device attestation blocks emulators and tampered apps before any capture.</p></div>
+<div class="figure"><p class="caption">Figure 4.4b′ – Onboarding Service: device attestation, signed vendor webhook, state machine, decision engine, four-eyes manual review</p><img src="../architecture/.structurizr/1/images/03-Components-Onboarding.svg" alt="Components: onboarding"/><p class="note"><em>How to read it.</em> The vendor's result is never taken from the app: it arrives through an <b>HMAC-signed webhook</b> (or is polled if the webhook is lost) and is combined with the Registro Civil match and the screening result. A state machine decides approve, review or reject; doubtful cases and all rejections go to the four-eyes review in the Back-office Portal. On approval the user is created in the identity product with <code>kyc_level=verified</code>. Device attestation blocks emulators and tampered apps before any capture.</p></div>
 
-<div class="figure landscape"><p class="caption">Figure 4.4c – Accounts Service: frequent-client persistence (cache-aside, refresh-ahead, event-driven invalidation)</p><img src="../architecture/.structurizr/1/images/03-Components-Accounts.svg" alt="Components: accounts"/><p class="note"><em>How to read it.</em> The frequent-client classifier counts activity events in a sliding window and announces `FrequentClientAdded / Removed`; the precompute worker pre-builds the dashboard on that event and on each frequent client's login; the cache invalidator keeps balances fresh from movement events; reads go cache → read model → Core. The Core stays the source of truth: balances show their "as of" time and are re-checked by the Core before money moves.</p></div>
+<div class="figure landscape"><p class="caption">Figure 4.4c – Accounts Service: frequent-client persistence (cache-aside, refresh-ahead, event-driven invalidation)</p><img src="../architecture/.structurizr/1/images/03-Components-Accounts.svg" alt="Components: accounts"/><p class="note"><em>How to read it.</em> The frequent-client classifier counts activity events in a sliding window and announces <code>FrequentClientAdded / Removed</code>; the precompute worker pre-builds the dashboard on that event and on each frequent client's login; the cache invalidator keeps balances fresh from movement events; reads go cache → read model → Core. The Core stays the source of truth: balances show their "as of" time and are re-checked by the Core before money moves.</p></div>
 
 <div class="figure landscape"><p class="caption">Figure 4.4d – Notification Service: policy, templates, priority lanes, SMS failover, delivery tracking</p><img src="../architecture/.structurizr/1/images/03-Components-Notification.svg" alt="Components: notification"/><p class="note"><em>How to read it.</em> Events come in once (idempotent consumer); the policy decides SMS + email in parallel for regulatory notices; messages are rendered with masking and queued on priority lanes; each provider sits behind an adapter with a circuit breaker; the tracker resends an OTP through the secondary SMS provider if no receipt arrives in 45 s.</p></div>
 
@@ -281,9 +281,9 @@ Six containers are opened, chosen because they hold the patterns the statement a
 
 <div class="figure"><p class="caption">Figure 4.5 – Production on AWS: us-east-1 primary (3 AZs), us-east-2 warm standby, hybrid link to the Core</p><img src="../architecture/.structurizr/1/images/04-Deployment-Production.svg" alt="Deployment"/></div>
 
-**Region choice and latency (ADR-002, ADR-003).** No AWS or Azure region exists in Ecuador, so the platform is hosted abroad under the SB cloud conditions. Round trips measured from Cuenca (8 Nov 2026): **us-east-1 ~90 ms**, us-east-2 ~103 ms, mx-central-1 ~118 ms, sa-east-1 ~157 ms (Ecuador's submarine cables route through Miami). Azure was not measured: its US East regions are in the same metros as AWS's, so similar numbers are expected; **Azure Chile Central** is the one unknown and should be measured before the decision is final (section 19). With HTTP/2 connection reuse, edge TLS termination and cache hits, a frequent client's dashboard stays well under 500 ms. Calls to the on-premises Core cross ~90 ms, which is why reads are served from caches and read models.
+**Region choice and latency (ADR-002, ADR-003).** No AWS or Azure region exists in Ecuador, so the platform is hosted abroad under the SB cloud conditions. Round trips measured from Cuenca (8 Nov 2026): **us-east-1 ~90 ms**, us-east-2 ~103 ms, mx-central-1 ~118 ms, sa-east-1 ~157 ms (Ecuador's submarine cables route through Miami). A second run measured both clouds side by side: AWS us-east-1 ~103 ms; Azure East US ~109 ms, Mexico Central ~124 ms and **Chile Central ~178 ms**. Latency to the US East metros is a near tie, and the geographically closer Chile region is slower because traffic still goes through the US, so latency doesn't favour Azure. With HTTP/2 connection reuse, edge TLS termination and cache hits, a frequent client's dashboard stays well under 500 ms. Calls to the on-premises Core cross ~90 ms, which is why reads are served from caches and read models.
 
-One representative element per platform service is shown; node descriptions list everything deployed there. EKS namespaces: **platform** (Kong, CDC), **channels** (BFFs), **payments** (Transfer, Beneficiary & Limits, Risk, Interbank, Core Adapter), **customer** (Accounts, Movements, Profile, Device, Onboarding, Customer Info Adapter), **support** (Notification, Audit, AML).
+One representative element per platform service is shown; node descriptions list everything deployed there. Each region has its own **observability stack** (ADOT collectors, Managed Prometheus, Managed Grafana, CloudWatch, X-Ray), so the standby region is already monitored when a failover starts (section 14). EKS namespaces: **platform** (Kong, CDC), **channels** (BFFs), **payments** (Transfer, Beneficiary & Limits, Risk, Interbank, Core Adapter), **customer** (Accounts, Movements, Profile, Device, Onboarding, Customer Info Adapter), **support** (Notification, Audit, AML).
 
 ### 4.6 Sequence diagrams
 
@@ -294,6 +294,8 @@ One representative element per platform service is shown; node descriptions list
 <div class="figure landscape"><p class="caption">Figure 4.6c – Onboarding Saga with facial recognition</p><img src="../architecture/.structurizr/1/images/05-Dynamic-Onboarding.svg" alt="Onboarding"/></div>
 
 <div class="figure landscape"><p class="caption">Figure 4.6d – Interbank real-time transfer (Saga, ISO 20022, notifications, audit)</p><img src="../architecture/.structurizr/1/images/05-Dynamic-Transfer-Interbank.svg" alt="Interbank transfer"/></div>
+
+<div class="figure landscape"><p class="caption">Figure 4.6e – Step-up with dynamic linking for a transfer to a new beneficiary (RFC 9470 + RFC 9396)</p><img src="../architecture/.structurizr/1/images/05-Dynamic-StepUp-Transfer.svg" alt="Step-up transfer"/><p class="note"><em>How to read it.</em> The first request carries an <code>acr:2</code> token, so the Transfer Service answers <code>insufficient_user_authentication</code>. The app re-authorizes with the amount and beneficiary in <code>authorization_details</code>; the customer approves with biometrics; the identity product issues a 2-minute, single-use token valid only for that transaction. The retry reuses the same idempotency key, so it can never debit twice.</p></div>
 
 ## 5. Front-end and mobile architecture
 
@@ -315,7 +317,7 @@ Justifications: (1) stronger default protection of the binary, required by the S
 
 **Design rules**
 
-- **No tokens in the browser:** the Web BFF is a confidential OAuth client (token handler); the SPA receives only a `__Host-` HttpOnly, Secure, SameSite=Strict cookie (IETF *OAuth 2.0 for Browser-Based Apps*, BFF pattern). Strict CSP, Trusted Types, HSTS, anti-clickjacking headers.
+- **No tokens in the browser:** the Web BFF is a confidential OAuth client (token handler); the SPA receives only a `__Host-` HttpOnly, Secure, SameSite=Strict cookie (RFC 10017 / BCP 212 *OAuth 2.0 for Browser-Based Applications*, BFF pattern). Strict CSP, Trusted Types, HSTS, anti-clickjacking headers.
 - **One BFF per channel:** different security models (confidential web client vs native public client with DPoP) and release cycles.
 - **Mobile security to OWASP MASVS L2 + R:** Keychain / Keystore with keys in **Secure Enclave / StrongBox**, **Play Integrity / App Attest** verified server-side, **commercial RASP** (root/jailbreak, hooking, emulator, overlay) feeding Risk Scoring, certificate **public-key pinning**, obfuscation, screenshot blocking on sensitive screens, forced update.
 - **Micro-frontends rejected:** web is ~10% of traffic with few teams; one modular SPA (Nx, lazy-loaded features) instead, revisited above ~3 parallel web teams.
@@ -340,7 +342,7 @@ Justifications: (1) **meets QAS-10** – a stolen token can't be replayed withou
 | **Biometric login** (Face ID / fingerprint) | Possession (device key) + inherence (biometric unlocks it) | Mobile; the key signs the DPoP proof of the refresh-token grant |
 | Passkeys (FIDO2) | Possession + inherence | Optional for web; **not** used as the mobile factor because synced passkeys break "authorized devices only" |
 
-**Step-up with dynamic linking:** transfers to unregistered accounts, new beneficiaries, limit increases, contact changes and device registration require `acr:3`. The API answers `insufficient_user_authentication` (RFC 9470); the app re-authorizes with `authorization_details` (RFC 9396) containing amount and beneficiary; the resulting 2-minute, single-use token is valid only for that transaction. Web customers can approve in the mobile app (decoupled, CIBA).
+**Step-up with dynamic linking:** transfers to unregistered accounts, new beneficiaries, limit increases, contact changes and device registration require `acr:3`. The API answers `insufficient_user_authentication` (RFC 9470); the app re-authorizes with `authorization_details` (RFC 9396) containing amount and beneficiary; the resulting 2-minute, single-use token is valid only for that transaction. Web customers can approve in the mobile app (decoupled, CIBA). The full sequence is in Figure 4.6e.
 
 | Customer action | Required assurance |
 | --- | --- |
@@ -361,7 +363,7 @@ The bank's identity product must support PAR, PKCE, `private_key_jwt`, DPoP, ref
 
 **Checks:** cédula document authenticity → **liveness** (iBeta PAD Level 2, ISO/IEC 30107-3) and injection-attack detection → **1:1 face match** with the document → **Registro Civil (DIGERCIC SNIC)** demographic + biometric validation (USD 0.30 per query) → age ≥ 18 → **PEP / sanctions / UAFE screening** → phone and email OTP → explicit **consent**.
 
-**ADR-008 – Buy a specialist eKYC platform** instead of building on AWS Rekognition (which offers liveness but no cédula document verification or registry connector). Shortlist and PoC: **FacePhi** (preferred: documented Registro Civil Ecuador validation, Latin American banking track record) and **Jumio** (alternative: Ecuador registry check); iProov, Veridas, FaceTec, Onfido also evaluated. Justifications: (1) only specialist vendors cover document + registry + liveness together; (2) independently tested liveness and injection-attack defence give auditable evidence for QAS-11; (3) an anti-corruption layer keeps the vendor swappable. The bank holds the DIGERCIC contract itself as data controller and obligated KYC party.
+**ADR-008 – Buy a specialist eKYC platform** instead of building on AWS Rekognition (which offers liveness but no cédula document verification or registry connector). Shortlist and PoC: **FacePhi** (preferred: documented Registro Civil Ecuador validation, Latin American banking track record) and **Jumio** (alternative: Ecuador registry check); iProov, Veridas, FaceTec, Onfido also evaluated. Both shortlisted vendors hold **iBeta ISO/IEC 30107-3 Level 2** confirmation letters (FacePhi SelphID, 2022; Jumio Liveness, 2025); the PoC must use the tested SDK version or a re-tested one. Justifications: (1) only specialist vendors cover document + registry + liveness together; (2) independently tested liveness and injection-attack defence give auditable evidence for QAS-11; (3) an anti-corruption layer keeps the vendor swappable. The bank holds the DIGERCIC contract itself as data controller and obligated KYC party.
 
 **Saga (orchestrated by the Onboarding Service)**
 
@@ -583,12 +585,12 @@ Contracts first (OpenAPI, Kafka schemas), routing by path or cohort at the gatew
 
 ## 18. Architecture decision log
 
-Every ADR records its context, the alternatives evaluated, the decision and at least two justifications; the full text is in the repository step notes ([roadmap-steps/](../roadmap-steps/)).
+Every ADR records its context, the alternatives evaluated, the decision and at least two justifications; the full text is in the repository step notes ([roadmap-steps/](../roadmap-steps/)). **Status:** ADR-001 (diagram tooling) is *Accepted*; ADR-002 to ADR-022 are *Proposed*, meaning recommended by the architect and waiting for approval by BP's architecture board. ADR-008 also needs the vendor proof of concept.
 
 | ADR | Decision | Alternatives evaluated | Justifications (summary) |
 | --- | --- | --- | --- |
 | 001 | Structurizr DSL for C4 | draw.io, C4-PlantUML, IcePanel | One model → consistent views; diagrams as code in Git; context, container, component, deployment and dynamic views in one tool |
-| 002 | AWS | Azure | Lowest latency among the AWS regions measured (~90 ms us-east-1; Azure Chile Central not yet measured); managed multi-region data services for RPO/RTO; Financial Services Lens |
+| 002 | AWS | Azure | Latency at least as good as Azure (same run: us-east-1 ~103 ms vs Azure East US ~109 ms and Chile Central ~178 ms); managed multi-region data services for RPO/RTO; Financial Services Lens |
 | 003 | us-east-1 primary, us-east-2 DR | São Paulo; us-east-1 + sa-east-1; single region | Latency; DR region with separate risks (SB) and acceptable latency (~103 ms) |
 | 004 | Microservices by bounded context (coarse-grained) | Modular monolith; fine-grained microservices | Independent scaling of reads and payday transfers; fault isolation; data boundaries per compliance rules; reuse |
 | 005 | Angular SPA | React, Vue | Complete opinionated framework; secure by default; predictable support |
@@ -623,7 +625,7 @@ Every ADR records its context, the alternatives evaluated, the decision and at l
 | eKYC vendor accuracy on real cédulas and low-end phones; Flutter SDK | PoC with FacePhi and Jumio before contract; alternate vendor behind the adapter | Product, Procurement |
 | Registro Civil biometric data leak investigation (2026) | Registry match always combined with live liveness | Fraud, Compliance |
 | Regulation details to confirm (SB article numbers, 10-year AML retention, JPRF third-party articles, cybersecurity standards) | Legal review before go-live | Legal, Compliance |
-| Closer cloud regions: **Azure Chile Central is already open but not measured**; the AWS Chile region is announced, not yet open | Measure Azure Chile Central from Quito, Guayaquil and Cuenca; re-evaluate when AWS Chile opens (the portable design keeps a move feasible) | Architecture |
+| Closer cloud regions: Azure Chile Central measured slower (~178 ms, routed through the US); the AWS Chile region is announced for end of 2026, not yet open | Re-measure from Quito and Guayaquil and when AWS Chile opens; the portable design keeps a move feasible | Architecture |
 | Team skills (Flutter, Kubernetes, Kafka) | Platform team, golden paths, training | Engineering management |
 
 **Future evolution:** new channels (chatbot, DEUNA, open finance APIs) reuse the gateway, identity, notifications and audit (QAS-15); bill payments and loans added as new bounded contexts; gradual migration of Core functions behind the anti-corruption layer (strangler fig); active/active for read journeys if latency or availability targets rise.
@@ -633,7 +635,7 @@ Every ADR records its context, the alternatives evaluated, the decision and at l
 | Grading criterion | Where answered |
 | --- | --- |
 | 1. Requirements met and justified | §1, §2, §18 (22 ADRs, ≥ 2 justifications each) |
-| 2. Quality and depth of C4 diagrams | §4 (context, 5 container views, 6 layered component views with reading notes, deployment, 4 sequences) |
+| 2. Quality and depth of C4 diagrams | §4 (context, 5 container views, 6 layered component views with reading notes, deployment, 5 sequences) |
 | 3. Separation of responsibilities and decoupling | §4.1, §8 (bounded contexts, BFFs, ACLs, events) |
 | 4. Architecture patterns | §8, §9, §10, §11 (Saga, outbox, inbox, circuit breaker, bulkhead, CQRS, cache-aside, refresh-ahead, ACL, BFF, strangler fig) |
 | 5. Integration with external services | §7, §8, §11 (Core, complementary system, BCE ISO 20022, eKYC, Registro Civil, SMS/email/push) |
@@ -641,7 +643,7 @@ Every ADR records its context, the alternatives evaluated, the decision and at l
 | 7. Data access architecture | §9 |
 | 8. Cloud knowledge (AWS) | §4.5, §8, §9, §13 |
 | 9. Cost management | §16 (verified unit prices), §17 (cost per stage) |
-| 10. Authentication architecture | §6 |
+| 10. Authentication architecture | §6, Figures 4.6a, 4.6b and 4.6e |
 | 11. Onboarding integration | §7, Figures 4.4b′ and 4.6c |
 | 12. Audit solution | §10, Figure 4.4e |
 | 13. Banking regulation and security standards | §3, §12 |
